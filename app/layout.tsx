@@ -8,19 +8,19 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "StreamVault - AI-Powered Live TV",
-  description: "Experience live TV like never before with AI-powered recommendations, smart scheduling, and a stunning glass UI. StreamVault brings you 185+ channels with mood-based discovery and personalized suggestions.",
+  title: "Movie Streams - AI-Powered Live TV",
+  description: "Experience live TV like never before with AI-powered recommendations, smart scheduling, and a stunning glass UI. Movie Streams brings you 185+ channels with mood-based discovery and personalized suggestions.",
   keywords: ["IPTV", "streaming", "live TV", "AI recommendations", "TV guide", "EPG"],
-  authors: [{ name: "StreamVault" }],
-  creator: "StreamVault",
+  authors: [{ name: "Movie Streams" }],
+  creator: "Movie Streams",
   openGraph: {
-    title: "StreamVault - AI-Powered Live TV",
+    title: "Movie Streams - AI-Powered Live TV",
     description: "Experience live TV like never before with AI-powered recommendations and a stunning glass UI.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "StreamVault - AI-Powered Live TV",
+    title: "Movie Streams - AI-Powered Live TV",
     description: "Experience live TV like never before with AI-powered recommendations and a stunning glass UI.",
   },
   icons: {
