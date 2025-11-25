@@ -45,7 +45,8 @@ let plutoCache: {
 } | null = null;
 
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-const PLUTO_API_BASE = 'https://boot.pluto.tv/v4/start';
+// Use our API proxy to avoid CORS issues
+const PLUTO_API_PROXY = '/api/pluto';
 
 // Category mapping for Pluto channels
 const categoryMapping: Record<string, string> = {
@@ -104,46 +105,26 @@ function generateSessionId(): string {
 }
 
 /**
- * Fetch fresh Pluto TV channels from their API
+ * Fetch fresh Pluto TV channels via our API proxy (avoids CORS)
  */
 export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
   // Return cached if still valid
   if (plutoCache && Date.now() - plutoCache.fetchedAt < CACHE_TTL) {
+    console.log('Using cached Pluto channels');
     return plutoCache.channels;
   }
 
-  const deviceId = generateDeviceId();
-  const sessionId = generateSessionId();
-
-  const params = new URLSearchParams({
-    appName: 'web',
-    appVersion: '8.0.0',
-    deviceVersion: 'Chrome',
-    deviceId: deviceId,
-    deviceType: 'web',
-    deviceMake: 'Chrome',
-    deviceModel: 'Chrome',
-    deviceDNT: '0',
-    userId: '',
-    advertisingId: '',
-    sid: sessionId,
-    serverSideAds: 'false',
-    clientID: deviceId,
-    clientModelNumber: 'na',
-    channelSlug: '',
-  });
-
   try {
-    const response = await fetch(`${PLUTO_API_BASE}?${params.toString()}`, {
+    console.log('Fetching Pluto channels via API proxy...');
+    const response = await fetch(PLUTO_API_PROXY, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
 
     if (!response.ok) {
-      console.error('Pluto API error:', response.status);
+      console.error('Pluto API proxy error:', response.status);
       return [];
     }
 
@@ -152,6 +133,7 @@ export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
 
     // Parse channels from response
     const apiChannels = data.channels || data.EPG || [];
+    console.log(`Pluto API returned ${apiChannels.length} raw channels`);
 
     for (const ch of apiChannels) {
       // Find HLS stream URL
@@ -176,7 +158,7 @@ export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
       fetchedAt: Date.now(),
     };
 
-    console.log(`Fetched ${channels.length} Pluto TV channels`);
+    console.log(`Parsed ${channels.length} Pluto TV channels with stream URLs`);
     return channels;
   } catch (error) {
     console.error('Failed to fetch Pluto channels:', error);

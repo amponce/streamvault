@@ -321,20 +321,30 @@ export default function IPTVPlayer() {
   }, []);
 
   const handleAIRecommendation = useCallback(() => {
-    const rec = getAIRecommendation();
-    if (rec.channel) {
-      playChannel(rec.channel);
+    // Only pick from displayed (valid) channels to avoid dead links
+    if (displayedChannels.length > 0) {
+      const randomIndex = Math.floor(Math.random() * displayedChannels.length);
+      playChannel(displayedChannels[randomIndex]);
       setShowAIPanel(false);
     }
-  }, [playChannel]);
+  }, [playChannel, displayedChannels]);
 
   const handleMoodSelection = useCallback((mood: Mood) => {
-    const channels = getChannelsByMood(mood, 1);
-    if (channels.length > 0) {
-      playChannel(channels[0]);
+    // Filter mood channels to only include displayed (valid) ones
+    const moodChannels = getChannelsByMood(mood, 10);
+    const validMoodChannels = moodChannels.filter(ch =>
+      displayedChannels.some(dc => dc.id === ch.id)
+    );
+    if (validMoodChannels.length > 0) {
+      const randomIndex = Math.floor(Math.random() * validMoodChannels.length);
+      playChannel(validMoodChannels[randomIndex]);
+    } else if (displayedChannels.length > 0) {
+      // Fallback to any displayed channel if no mood matches
+      const randomIndex = Math.floor(Math.random() * displayedChannels.length);
+      playChannel(displayedChannels[randomIndex]);
     }
     setShowAIPanel(false);
-  }, [playChannel]);
+  }, [playChannel, displayedChannels]);
 
   const handleImportM3U = useCallback(async (url: string) => {
     setImportLoading(true);
