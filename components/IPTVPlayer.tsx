@@ -199,8 +199,10 @@ export default function IPTVPlayer() {
 
   const handleAIRecommendation = useCallback(() => {
     const rec = getAIRecommendation();
-    playChannel(rec.channel);
-    setShowAIPanel(false);
+    if (rec.channel) {
+      playChannel(rec.channel);
+      setShowAIPanel(false);
+    }
   }, [playChannel]);
 
   const handleMoodSelection = useCallback((mood: Mood) => {

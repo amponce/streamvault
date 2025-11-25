@@ -203,8 +203,10 @@ export function getAIRecommendation(): {
   const freshCandidates = candidates.filter(ch => !recentlyWatched.has(ch.id));
   const finalCandidates = freshCandidates.length > 0 ? freshCandidates : candidates;
 
-  // Pick a random channel from candidates
-  const selected = finalCandidates[Math.floor(Math.random() * finalCandidates.length)];
+  // Pick a random channel from candidates (fallback to first channel if empty)
+  const selected = finalCandidates.length > 0
+    ? finalCandidates[Math.floor(Math.random() * finalCandidates.length)]
+    : allChannels[0];
 
   // Generate reason
   let reason = '';
