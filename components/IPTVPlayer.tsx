@@ -53,10 +53,16 @@ const VideoPlayer = dynamic(() => import('./VideoPlayer'), {
 });
 
 type ViewMode = 'browse' | 'schedule' | 'discover';
+type ContentFilter = 'all' | 'movies' | 'tv';
+
+// Map categories to content types for filtering
+const movieCategories = new Set(['Movies', 'Horror', 'Comedy']);
+const tvCategories = new Set(['Local', 'News', 'Sports', 'Entertainment', 'Music', 'Kids', 'Documentary']);
 
 export default function IPTVPlayer() {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
+  const [contentFilter, setContentFilter] = useState<ContentFilter>('movies');
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile
   const [displayedChannels, setDisplayedChannels] = useState<Channel[]>([]);
@@ -76,7 +82,7 @@ export default function IPTVPlayer() {
   const [validationProgress, setValidationProgress] = useState<ValidationProgress | null>(null);
   const [validationResults, setValidationResults] = useState<Map<string, ValidationResult>>(new Map());
   const [showDeadChannels, setShowDeadChannels] = useState(false);
-  const [hideInvalidChannels, setHideInvalidChannels] = useState(true);
+  const [hideInvalidChannels, setHideInvalidChannels] = useState(false);
   const watchStartTime = useRef<number>(0);
   const overlayTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -173,6 +179,13 @@ export default function IPTVPlayer() {
       filtered = filterValidChannels(filtered, validationResults);
     }
 
+    // Apply content type filter (Movies/TV/All)
+    if (contentFilter === 'movies') {
+      filtered = filtered.filter(ch => movieCategories.has(ch.category));
+    } else if (contentFilter === 'tv') {
+      filtered = filtered.filter(ch => tvCategories.has(ch.category));
+    }
+
     if (selectedCategory !== 'All') {
       filtered = filtered.filter(ch => ch.category === selectedCategory);
     }
@@ -186,7 +199,7 @@ export default function IPTVPlayer() {
     }
 
     setDisplayedChannels(filtered);
-  }, [selectedCategory, searchQuery, brokenChannels, importedChannels, validationResults, hideInvalidChannels]);
+  }, [selectedCategory, searchQuery, brokenChannels, importedChannels, validationResults, hideInvalidChannels, contentFilter]);
 
   // Update current program and progress
   useEffect(() => {
@@ -404,6 +417,31 @@ export default function IPTVPlayer() {
             />
           </div>
 
+          {/* Content Type Filter */}
+          <div className="flex gap-1 p-1 glass rounded-xl mb-3">
+            {([
+              { key: 'movies' as ContentFilter, label: 'Movies', icon: '🎬' },
+              { key: 'tv' as ContentFilter, label: 'TV', icon: '📺' },
+              { key: 'all' as ContentFilter, label: 'All', icon: '📡' },
+            ]).map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setContentFilter(key);
+                  setSelectedCategory('All'); // Reset category when switching content type
+                }}
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 ${
+                  contentFilter === key
+                    ? 'bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg'
+                    : 'text-white/50 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <span>{icon}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+
           {/* View Mode Tabs */}
           <div className="flex gap-2 p-1 glass rounded-xl">
             {(['browse', 'schedule', 'discover'] as ViewMode[]).map((mode) => (
@@ -426,7 +464,14 @@ export default function IPTVPlayer() {
         {viewMode === 'browse' && (
           <div className="px-4 py-3 border-b border-white/5">
             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              {categories.map(cat => (
+              {categories
+                .filter(cat => {
+                  if (cat === 'All') return true;
+                  if (contentFilter === 'movies') return movieCategories.has(cat);
+                  if (contentFilter === 'tv') return tvCategories.has(cat);
+                  return true;
+                })
+                .map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
@@ -741,15 +786,15 @@ export default function IPTVPlayer() {
                 onTouchStart={resetOverlayTimer}
               >
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="min-w-0 max-w-[70%] md:max-w-[60%]">
                     <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2">
-                      <span className="px-1.5 md:px-2 py-0.5 md:py-1 rounded-md bg-red-500/80 text-xs font-bold flex items-center gap-1">
+                      <span className="px-1.5 md:px-2 py-0.5 md:py-1 rounded-md bg-red-500/80 text-xs font-bold flex items-center gap-1 flex-shrink-0">
                         <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                         LIVE
                       </span>
-                      <span className="text-white/80 text-xs md:text-sm">CH {selectedChannel.number}</span>
+                      <span className="text-white/80 text-xs md:text-sm flex-shrink-0">CH {selectedChannel.number}</span>
                     </div>
-                    <h2 className="text-lg md:text-2xl font-bold text-white mb-0.5 md:mb-1">{selectedChannel.name}</h2>
+                    <h2 className="text-lg md:text-2xl font-bold text-white mb-0.5 md:mb-1 truncate">{selectedChannel.name}</h2>
                     {currentProgram && (
                       <div className="text-white/60 text-xs md:text-sm">
                         {currentProgram.title} • {formatDuration(currentProgram.duration)}

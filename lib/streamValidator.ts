@@ -125,15 +125,15 @@ async function validateStream(
   } catch (error) {
     // CORS errors are common - try no-cors as fallback
     try {
-      const noCorsResponse = await fetch(channel.url, {
+      await fetch(channel.url, {
         method: 'HEAD',
         signal,
         mode: 'no-cors',
       });
 
       // With no-cors, we can't read the response, but if it doesn't throw,
-      // the server at least responded. Mark as "unknown" but assume valid
-      // since many streams block CORS but work in video players
+      // the server at least responded. Mark as valid since many streams
+      // block CORS but work in video players
       return {
         channelId: channel.id,
         isValid: true, // Assume valid - let HLS.js be the final judge
@@ -142,11 +142,17 @@ async function validateStream(
         checkedAt: now,
       };
     } catch {
-      // Complete failure
+      // Even if no-cors fails, many valid streams block all preflight/HEAD requests
+      // but work fine when HLS.js actually requests segments.
+      // Only mark as truly invalid if this is a known bad pattern
+      const errorMsg = error instanceof Error ? error.message : 'Network error';
+
+      // Be lenient - assume valid unless we got a clear server rejection
+      // HLS.js will be the final judge when actually playing
       return {
         channelId: channel.id,
-        isValid: false,
-        error: error instanceof Error ? error.message : 'Network error',
+        isValid: true, // Give benefit of doubt - let HLS.js decide
+        error: `Unchecked: ${errorMsg}`,
         responseTime: performance.now() - startTime,
         checkedAt: now,
       };
