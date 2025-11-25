@@ -2,7 +2,7 @@
 
 > AI-Powered Live TV Streaming with a Stunning Glass UI
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/streamvault)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/amponce/streamvault)
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](https://opensource.org/licenses/MIT)
 
 StreamVault is a modern IPTV streaming application built with Next.js 16, featuring AI-powered recommendations, a beautiful glassmorphism UI, and smart channel management.
@@ -49,7 +49,7 @@ StreamVault is a modern IPTV streaming application built with Next.js 16, featur
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/streamvault.git
+git clone https://github.com/amponce/streamvault.git
 cd streamvault
 
 # Install dependencies
