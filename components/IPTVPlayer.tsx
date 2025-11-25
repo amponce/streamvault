@@ -718,103 +718,98 @@ export default function IPTVPlayer() {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-white/5 space-y-3">
-          {/* Pluto TV Status */}
-          {plutoLoading ? (
-            <div className="glass rounded-lg p-3 flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-white/60">Loading Pluto TV channels...</span>
-            </div>
-          ) : plutoChannels.length > 0 ? (
-            <div className="glass rounded-lg p-2 flex items-center gap-2">
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-cyan-500 to-blue-500 rounded text-white">
-                PLUTO
-              </span>
-              <span className="text-xs text-green-400">{plutoChannels.length} channels loaded</span>
-            </div>
-          ) : !isLoading && (
-            <div className="glass rounded-lg p-2 flex items-center gap-2">
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gray-500 rounded text-white">
-                PLUTO
-              </span>
-              <span className="text-xs text-red-400">Failed to load (check console)</span>
-            </div>
-          )}
-
-          {/* Validation Progress */}
-          {validationProgress && validationProgress.inProgress && (
-            <div className="glass rounded-lg p-3">
-              <div className="flex items-center justify-between text-xs mb-2">
-                <span className="text-white/60">Validating streams...</span>
-                <span className="text-white/40">{validationProgress.checked}/{validationProgress.total}</span>
+        {/* Footer - Compact */}
+        <div className="p-3 border-t border-white/5 space-y-2">
+          {/* Status Row - Pluto + Validation inline */}
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            {plutoLoading ? (
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-white/60">Loading Pluto...</span>
               </div>
-              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 transition-all duration-300"
-                  style={{ width: `${(validationProgress.checked / validationProgress.total) * 100}%` }}
-                />
+            ) : plutoChannels.length > 0 ? (
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-cyan-500 to-blue-500 rounded text-white">
+                  PLUTO
+                </span>
+                <span className="text-green-400">{plutoChannels.length}</span>
               </div>
-              <div className="flex items-center justify-between text-xs mt-2">
-                <span className="text-green-400">{validationProgress.valid} valid</span>
-                <span className="text-red-400">{validationProgress.invalid} dead</span>
+            ) : !isLoading && (
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gray-500 rounded text-white">
+                  PLUTO
+                </span>
+                <span className="text-red-400">Failed</span>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Validation Controls */}
-          {validationResults.size > 0 && !validationProgress?.inProgress && (
-            <div className="flex items-center justify-between glass rounded-lg p-2">
-              <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hideInvalidChannels}
-                  onChange={(e) => setHideInvalidChannels(e.target.checked)}
-                  className="w-4 h-4 rounded bg-white/10 border-white/20 text-violet-500 focus:ring-violet-500"
-                />
-                Hide dead streams
-              </label>
-              <button
-                onClick={() => setShowDeadChannels(true)}
-                className="text-xs text-red-400 hover:text-red-300 transition-colors"
-              >
-                View {Array.from(validationResults.values()).filter(r => !r.isValid).length} dead
-              </button>
-            </div>
-          )}
+            {/* Validation mini-progress */}
+            {validationProgress && validationProgress.inProgress && (
+              <div className="flex items-center gap-1.5 text-white/40">
+                <span>|</span>
+                <span>Checking {validationProgress.checked}/{validationProgress.total}</span>
+              </div>
+            )}
 
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="w-full glass-button py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Import M3U Playlist
-          </button>
-          <div className="flex items-center justify-between text-xs text-white/40">
-            <span>{displayedChannels.length} channels{plutoChannels.length > 0 && ` (${plutoChannels.length} Pluto)`}{importedChannels.length > 0 && ` (${importedChannels.length} imported)`}</span>
-            <div className="flex gap-2">
-              {importedChannels.length > 0 && (
+            {/* Dead count link */}
+            {validationResults.size > 0 && !validationProgress?.inProgress && (
+              <>
+                <span className="text-white/20">|</span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hideInvalidChannels}
+                    onChange={(e) => setHideInvalidChannels(e.target.checked)}
+                    className="w-3 h-3 rounded bg-white/10 border-white/20 text-violet-500 focus:ring-violet-500"
+                  />
+                  <span className="text-white/60">Hide dead</span>
+                </label>
                 <button
-                  onClick={handleClearImported}
-                  className="text-red-400 hover:text-red-300 transition-colors"
+                  onClick={() => setShowDeadChannels(true)}
+                  className="text-red-400 hover:text-red-300"
                 >
-                  Clear imported
+                  ({Array.from(validationResults.values()).filter(r => !r.isValid).length})
                 </button>
-              )}
-              {brokenChannels.size > 0 && (
-                <button
-                  onClick={() => {
-                    setBrokenChannels(new Set());
-                    clearBrokenChannels();
-                  }}
-                  className="text-violet-400 hover:text-violet-300 transition-colors"
-                >
-                  Reset {brokenChannels.size} hidden
-                </button>
-              )}
+              </>
+            )}
+          </div>
+
+          {/* Import + Channel Count Row */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="glass-button py-1.5 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Import
+            </button>
+            <div className="flex-1 text-xs text-white/40 truncate">
+              {displayedChannels.length} total
+              {plutoChannels.length > 0 && <span className="text-cyan-400"> · {plutoChannels.length} Pluto</span>}
+              {importedChannels.length > 0 && <span className="text-violet-400"> · {importedChannels.length} imported</span>}
             </div>
+            {(importedChannels.length > 0 || brokenChannels.size > 0) && (
+              <div className="flex gap-2 text-xs">
+                {importedChannels.length > 0 && (
+                  <button onClick={handleClearImported} className="text-red-400 hover:text-red-300">
+                    Clear
+                  </button>
+                )}
+                {brokenChannels.size > 0 && (
+                  <button
+                    onClick={() => {
+                      setBrokenChannels(new Set());
+                      clearBrokenChannels();
+                    }}
+                    className="text-violet-400 hover:text-violet-300"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </aside>
