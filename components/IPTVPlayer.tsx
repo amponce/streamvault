@@ -83,7 +83,7 @@ export default function IPTVPlayer() {
   const [validationProgress, setValidationProgress] = useState<ValidationProgress | null>(null);
   const [validationResults, setValidationResults] = useState<Map<string, ValidationResult>>(new Map());
   const [showDeadChannels, setShowDeadChannels] = useState(false);
-  const [hideInvalidChannels, setHideInvalidChannels] = useState(false);
+  const [hideInvalidChannels, setHideInvalidChannels] = useState(true);
   const [plutoChannels, setPlutoChannels] = useState<Channel[]>([]);
   const [plutoLoading, setPlutoLoading] = useState(false);
   const watchStartTime = useRef<number>(0);
@@ -553,7 +553,14 @@ export default function IPTVPlayer() {
                         {channel.number}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate">{channel.name}</div>
+                        <div className="font-medium text-sm truncate flex items-center gap-1.5">
+                          {channel.name}
+                          {channel.id.startsWith('pluto-') && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-cyan-500 to-blue-500 rounded text-white">
+                              PLUTO
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs text-white/40">{channel.category}</span>
                           <span className="w-1.5 h-1.5 rounded-full status-live" />
@@ -713,11 +720,25 @@ export default function IPTVPlayer() {
 
         {/* Footer */}
         <div className="p-4 border-t border-white/5 space-y-3">
-          {/* Pluto TV Loading */}
-          {plutoLoading && (
+          {/* Pluto TV Status */}
+          {plutoLoading ? (
             <div className="glass rounded-lg p-3 flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-xs text-white/60">Loading Pluto TV channels...</span>
+            </div>
+          ) : plutoChannels.length > 0 ? (
+            <div className="glass rounded-lg p-2 flex items-center gap-2">
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-cyan-500 to-blue-500 rounded text-white">
+                PLUTO
+              </span>
+              <span className="text-xs text-green-400">{plutoChannels.length} channels loaded</span>
+            </div>
+          ) : !isLoading && (
+            <div className="glass rounded-lg p-2 flex items-center gap-2">
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gray-500 rounded text-white">
+                PLUTO
+              </span>
+              <span className="text-xs text-red-400">Failed to load (check console)</span>
             </div>
           )}
 
