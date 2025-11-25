@@ -211,8 +211,8 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
       {/* Loading State */}
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="text-center">
-            <div className="relative">
+          <div className="flex flex-col items-center text-center">
+            <div className="relative w-16 h-16">
               <div className="w-16 h-16 border-2 border-violet-500/30 rounded-full" />
               <div className="absolute inset-0 w-16 h-16 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
             </div>
