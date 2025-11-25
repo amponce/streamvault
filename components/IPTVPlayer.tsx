@@ -30,6 +30,15 @@ import {
   clearImportedChannels,
   popularM3USources,
 } from '@/lib/m3uImporter';
+import {
+  validateChannels,
+  ValidationProgress,
+  ValidationResult,
+  loadValidationCache,
+  clearValidationCache,
+  filterValidChannels,
+  stopValidation,
+} from '@/lib/streamValidator';
 
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), {
   ssr: false,
@@ -64,6 +73,10 @@ export default function IPTVPlayer() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importedChannels, setImportedChannels] = useState<Channel[]>([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [validationProgress, setValidationProgress] = useState<ValidationProgress | null>(null);
+  const [validationResults, setValidationResults] = useState<Map<string, ValidationResult>>(new Map());
+  const [showDeadChannels, setShowDeadChannels] = useState(false);
+  const [hideInvalidChannels, setHideInvalidChannels] = useState(true);
   const watchStartTime = useRef<number>(0);
   const overlayTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -101,13 +114,64 @@ export default function IPTVPlayer() {
     setBrokenChannels(broken);
     const imported = loadImportedChannels();
     setImportedChannels(imported);
+
+    // Load cached validation results
+    const cachedValidation = loadValidationCache();
+    if (cachedValidation.size > 0) {
+      setValidationResults(cachedValidation);
+    }
+
     setIsLoading(false);
   }, []);
+
+  // Run background stream validation
+  useEffect(() => {
+    if (isLoading) return;
+
+    const allAvailable = [...allChannels, ...importedChannels];
+
+    // Start validation in background
+    validateChannels(allAvailable, (progress) => {
+      setValidationProgress(progress);
+    }).then((results) => {
+      setValidationResults(results);
+
+      // Log dead channels for cleanup
+      const deadChannels = Array.from(results.entries())
+        .filter(([, result]) => !result.isValid)
+        .map(([id, result]) => {
+          const channel = allAvailable.find(ch => ch.id === id);
+          return {
+            id,
+            name: channel?.name || 'Unknown',
+            url: channel?.url || 'Unknown',
+            error: result.error,
+          };
+        });
+
+      if (deadChannels.length > 0) {
+        console.group('🔴 Dead Channels Report');
+        console.log(`Found ${deadChannels.length} dead/invalid streams:`);
+        console.table(deadChannels);
+        console.log('Dead channel IDs:', deadChannels.map(ch => ch.id));
+        console.groupEnd();
+      }
+    });
+
+    return () => {
+      stopValidation();
+    };
+  }, [isLoading, importedChannels]);
 
   // Filter channels (including imported)
   useEffect(() => {
     const allAvailable = [...allChannels, ...importedChannels];
     let filtered = allAvailable.filter(ch => !brokenChannels.has(ch.id));
+
+    // Filter out invalid channels if enabled
+    if (hideInvalidChannels && validationResults.size > 0) {
+      filtered = filterValidChannels(filtered, validationResults);
+    }
 
     if (selectedCategory !== 'All') {
       filtered = filtered.filter(ch => ch.category === selectedCategory);
@@ -122,7 +186,7 @@ export default function IPTVPlayer() {
     }
 
     setDisplayedChannels(filtered);
-  }, [selectedCategory, searchQuery, brokenChannels, importedChannels]);
+  }, [selectedCategory, searchQuery, brokenChannels, importedChannels, validationResults, hideInvalidChannels]);
 
   // Update current program and progress
   useEffect(() => {
@@ -196,6 +260,33 @@ export default function IPTVPlayer() {
     const prevIndex = currentIndex === 0 ? displayedChannels.length - 1 : currentIndex - 1;
     playChannel(displayedChannels[prevIndex]);
   }, [selectedChannel, displayedChannels, playChannel]);
+
+  // Handle user-reported dead links
+  const handleReportDead = useCallback((channel: Channel, error: string) => {
+    console.log('🚩 User reported dead channel:', {
+      id: channel.id,
+      name: channel.name,
+      url: channel.url,
+      error,
+      reportedAt: new Date().toISOString(),
+    });
+
+    // Store user reports separately from validation results
+    try {
+      const REPORTS_KEY = 'streamvault_user_reports';
+      const existing = JSON.parse(localStorage.getItem(REPORTS_KEY) || '[]');
+      existing.push({
+        channelId: channel.id,
+        channelName: channel.name,
+        url: channel.url,
+        error,
+        reportedAt: Date.now(),
+      });
+      localStorage.setItem(REPORTS_KEY, JSON.stringify(existing));
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
 
   const handleAIRecommendation = useCallback(() => {
     const rec = getAIRecommendation();
@@ -548,6 +639,47 @@ export default function IPTVPlayer() {
 
         {/* Footer */}
         <div className="p-4 border-t border-white/5 space-y-3">
+          {/* Validation Progress */}
+          {validationProgress && validationProgress.inProgress && (
+            <div className="glass rounded-lg p-3">
+              <div className="flex items-center justify-between text-xs mb-2">
+                <span className="text-white/60">Validating streams...</span>
+                <span className="text-white/40">{validationProgress.checked}/{validationProgress.total}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 transition-all duration-300"
+                  style={{ width: `${(validationProgress.checked / validationProgress.total) * 100}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs mt-2">
+                <span className="text-green-400">{validationProgress.valid} valid</span>
+                <span className="text-red-400">{validationProgress.invalid} dead</span>
+              </div>
+            </div>
+          )}
+
+          {/* Validation Controls */}
+          {validationResults.size > 0 && !validationProgress?.inProgress && (
+            <div className="flex items-center justify-between glass rounded-lg p-2">
+              <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hideInvalidChannels}
+                  onChange={(e) => setHideInvalidChannels(e.target.checked)}
+                  className="w-4 h-4 rounded bg-white/10 border-white/20 text-violet-500 focus:ring-violet-500"
+                />
+                Hide dead streams
+              </label>
+              <button
+                onClick={() => setShowDeadChannels(true)}
+                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+              >
+                View {Array.from(validationResults.values()).filter(r => !r.isValid).length} dead
+              </button>
+            </div>
+          )}
+
           <button
             onClick={() => setShowImportModal(true)}
             className="w-full glass-button py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
@@ -597,6 +729,9 @@ export default function IPTVPlayer() {
               <VideoPlayer
                 channel={selectedChannel}
                 onStreamError={handleStreamError}
+                onSwipeLeft={nextChannel}
+                onSwipeRight={prevChannel}
+                onReportDead={handleReportDead}
               />
               {/* Now Playing Overlay - Auto-hides, Mobile Friendly */}
               <div
@@ -868,6 +1003,78 @@ export default function IPTVPlayer() {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dead Channels Modal */}
+      {showDeadChannels && (
+        <div className="fixed inset-0 modal-backdrop flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+          <div className="glass-card rounded-t-2xl md:rounded-2xl p-4 md:p-6 w-full md:max-w-2xl fade-in max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-red-400">Dead Channels Report</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    // Export dead channels to clipboard
+                    const deadList = Array.from(validationResults.entries())
+                      .filter(([, r]) => !r.isValid)
+                      .map(([id, r]) => {
+                        const ch = [...allChannels, ...importedChannels].find(c => c.id === id);
+                        return `${id}: ${ch?.name || 'Unknown'} - ${r.error || 'Unknown error'}`;
+                      })
+                      .join('\n');
+                    navigator.clipboard.writeText(deadList);
+                    alert('Dead channels list copied to clipboard!');
+                  }}
+                  className="text-xs glass px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  Copy List
+                </button>
+                <button
+                  onClick={() => {
+                    clearValidationCache();
+                    setValidationResults(new Map());
+                    setShowDeadChannels(false);
+                  }}
+                  className="text-xs glass px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-yellow-400"
+                >
+                  Re-validate
+                </button>
+                <button
+                  onClick={() => setShowDeadChannels(false)}
+                  className="text-white/40 hover:text-white transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="text-xs text-white/40 mb-3">
+              {Array.from(validationResults.values()).filter(r => !r.isValid).length} channels failed validation.
+              Check console for detailed report.
+            </div>
+
+            <div className="overflow-y-auto custom-scrollbar flex-1 space-y-2">
+              {Array.from(validationResults.entries())
+                .filter(([, r]) => !r.isValid)
+                .map(([id, result]) => {
+                  const channel = [...allChannels, ...importedChannels].find(ch => ch.id === id);
+                  return (
+                    <div key={id} className="glass rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate">{channel?.name || id}</div>
+                          <div className="text-xs text-white/40 truncate">{channel?.url}</div>
+                        </div>
+                        <span className="text-xs text-red-400 ml-2 flex-shrink-0">{result.error || 'Failed'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         </div>
