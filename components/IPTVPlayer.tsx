@@ -718,97 +718,59 @@ export default function IPTVPlayer() {
           )}
         </div>
 
-        {/* Footer - Compact */}
-        <div className="p-3 border-t border-white/5 space-y-2">
-          {/* Status Row - Pluto + Validation inline */}
-          <div className="flex items-center gap-2 flex-wrap text-xs">
-            {plutoLoading ? (
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-white/60">Loading Pluto...</span>
-              </div>
-            ) : plutoChannels.length > 0 ? (
-              <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-cyan-500 to-blue-500 rounded text-white">
-                  PLUTO
-                </span>
-                <span className="text-green-400">{plutoChannels.length}</span>
-              </div>
-            ) : !isLoading && (
-              <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gray-500 rounded text-white">
-                  PLUTO
-                </span>
-                <span className="text-red-400">Failed</span>
-              </div>
-            )}
-
-            {/* Validation mini-progress */}
-            {validationProgress && validationProgress.inProgress && (
-              <div className="flex items-center gap-1.5 text-white/40">
-                <span>|</span>
-                <span>Checking {validationProgress.checked}/{validationProgress.total}</span>
-              </div>
-            )}
-
-            {/* Dead count link */}
-            {validationResults.size > 0 && !validationProgress?.inProgress && (
-              <>
-                <span className="text-white/20">|</span>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={hideInvalidChannels}
-                    onChange={(e) => setHideInvalidChannels(e.target.checked)}
-                    className="w-3 h-3 rounded bg-white/10 border-white/20 text-violet-500 focus:ring-violet-500"
-                  />
-                  <span className="text-white/60">Hide dead</span>
-                </label>
-                <button
-                  onClick={() => setShowDeadChannels(true)}
-                  className="text-red-400 hover:text-red-300"
-                >
-                  ({Array.from(validationResults.values()).filter(r => !r.isValid).length})
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Import + Channel Count Row */}
-          <div className="flex items-center gap-2">
+        {/* Footer - Single Row */}
+        <div className="px-3 py-2 border-t border-white/5">
+          <div className="flex items-center gap-2 text-xs">
+            {/* Import Button */}
             <button
               onClick={() => setShowImportModal(true)}
-              className="glass-button py-1.5 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5"
+              className="glass-button py-1 px-2 rounded text-[11px] font-medium flex items-center gap-1"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Import
             </button>
-            <div className="flex-1 text-xs text-white/40 truncate">
-              {displayedChannels.length} total
-              {plutoChannels.length > 0 && <span className="text-cyan-400"> · {plutoChannels.length} Pluto</span>}
-              {importedChannels.length > 0 && <span className="text-violet-400"> · {importedChannels.length} imported</span>}
-            </div>
-            {(importedChannels.length > 0 || brokenChannels.size > 0) && (
-              <div className="flex gap-2 text-xs">
-                {importedChannels.length > 0 && (
-                  <button onClick={handleClearImported} className="text-red-400 hover:text-red-300">
-                    Clear
-                  </button>
-                )}
-                {brokenChannels.size > 0 && (
-                  <button
-                    onClick={() => {
-                      setBrokenChannels(new Set());
-                      clearBrokenChannels();
-                    }}
-                    className="text-violet-400 hover:text-violet-300"
-                  >
-                    Reset
-                  </button>
-                )}
+
+            {/* Channel Count */}
+            <span className="text-white/40">{displayedChannels.length}</span>
+
+            {/* Pluto Status - tiny */}
+            {plutoLoading ? (
+              <div className="w-2.5 h-2.5 border border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            ) : plutoChannels.length > 0 && (
+              <span className="text-cyan-400">+{plutoChannels.length}P</span>
+            )}
+
+            {/* Validation - tiny spinner only */}
+            {validationProgress && validationProgress.inProgress && (
+              <div className="flex items-center gap-1 text-white/30">
+                <div className="w-2 h-2 border border-violet-400 border-t-transparent rounded-full animate-spin" />
+                <span className="text-[10px]">{validationProgress.checked}/{validationProgress.total}</span>
               </div>
+            )}
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Hide dead toggle - only after validation */}
+            {validationResults.size > 0 && !validationProgress?.inProgress && (
+              <label className="flex items-center gap-1 cursor-pointer text-white/50">
+                <input
+                  type="checkbox"
+                  checked={hideInvalidChannels}
+                  onChange={(e) => setHideInvalidChannels(e.target.checked)}
+                  className="w-2.5 h-2.5 rounded bg-white/10 border-white/20 text-violet-500"
+                />
+                <span className="text-[10px]">Hide dead</span>
+              </label>
+            )}
+
+            {/* Clear/Reset buttons */}
+            {importedChannels.length > 0 && (
+              <button onClick={handleClearImported} className="text-[10px] text-red-400 hover:text-red-300">
+                Clear
+              </button>
             )}
           </div>
         </div>
