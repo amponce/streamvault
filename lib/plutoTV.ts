@@ -15,20 +15,31 @@ export interface PlutoChannel {
 
 interface PlutoAPIChannel {
   _id: string;
+  id?: string;
   slug: string;
   name: string;
   number: number;
   category: string;
+  // v4/start format
   stitched?: {
     urls?: Array<{
       type: string;
       url: string;
     }>;
   };
+  // v2/channels format
+  stitcherParams?: string;
+  // Common image fields
   colorLogoPNG?: {
     path: string;
   };
   thumbnail?: {
+    path: string;
+  };
+  logo?: {
+    path: string;
+  };
+  featuredImage?: {
     path: string;
   };
 }
@@ -36,6 +47,9 @@ interface PlutoAPIChannel {
 interface PlutoBootResponse {
   channels?: PlutoAPIChannel[];
   EPG?: PlutoAPIChannel[];
+  // Direct array response from v2/channels
+  [index: number]: PlutoAPIChannel;
+  length?: number;
 }
 
 // Cache for Pluto channels with TTL
@@ -105,6 +119,27 @@ function generateSessionId(): string {
 }
 
 /**
+ * Generate a Pluto stream URL from channel data
+ */
+function generateStreamUrl(ch: PlutoAPIChannel): string | null {
+  // Check for pre-built stitched URL (v4/start format)
+  const stitchedUrl = ch.stitched?.urls?.find(u => u.type === 'hls')?.url;
+  if (stitchedUrl) {
+    return stitchedUrl;
+  }
+
+  // Build URL from channel ID (v2/channels format)
+  const channelId = ch._id || ch.id;
+  if (channelId) {
+    // Pluto's stitcher URL format
+    const deviceId = generateDeviceId();
+    return `https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/${channelId}/master.m3u8?deviceId=${deviceId}&deviceType=web&deviceMake=Chrome&deviceModel=web&deviceVersion=1.0&appName=web&appVersion=1.0&deviceDNT=0&userId=&advertisingId=&serverSideAds=false`;
+  }
+
+  return null;
+}
+
+/**
  * Fetch fresh Pluto TV channels via our API proxy (avoids CORS)
  */
 export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
@@ -128,28 +163,45 @@ export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
       return [];
     }
 
-    const data: PlutoBootResponse = await response.json();
+    const data = await response.json();
     const channels: PlutoChannel[] = [];
 
-    // Parse channels from response
-    const apiChannels = data.channels || data.EPG || [];
+    // Handle different response formats
+    let apiChannels: PlutoAPIChannel[] = [];
+
+    if (Array.isArray(data)) {
+      // Direct array response (v2/channels format)
+      apiChannels = data;
+      console.log('Pluto API returned direct array format');
+    } else if (data.channels) {
+      // Object with channels property (v4/start format)
+      apiChannels = data.channels;
+      console.log('Pluto API returned channels object format');
+    } else if (data.EPG) {
+      // Object with EPG property
+      apiChannels = data.EPG;
+      console.log('Pluto API returned EPG format');
+    }
+
     console.log(`Pluto API returned ${apiChannels.length} raw channels`);
 
     for (const ch of apiChannels) {
-      // Find HLS stream URL
-      const hlsUrl = ch.stitched?.urls?.find(u => u.type === 'hls')?.url;
+      if (!ch.name) continue;
 
-      if (hlsUrl && ch.name) {
-        channels.push({
-          id: `pluto-${ch._id}`,
-          slug: ch.slug,
-          name: ch.name,
-          number: ch.number || channels.length + 500,
-          category: mapCategory(ch.category || 'Entertainment'),
-          streamUrl: hlsUrl,
-          logo: ch.colorLogoPNG?.path || ch.thumbnail?.path,
-        });
-      }
+      // Generate or extract stream URL
+      const streamUrl = generateStreamUrl(ch);
+      if (!streamUrl) continue;
+
+      const channelId = ch._id || ch.id || ch.slug;
+      channels.push({
+        id: `pluto-${channelId}`,
+        slug: ch.slug || channelId,
+        name: ch.name,
+        number: ch.number || channels.length + 500,
+        category: mapCategory(ch.category || 'Entertainment'),
+        streamUrl: streamUrl,
+        logo: ch.colorLogoPNG?.path || ch.thumbnail?.path || ch.logo?.path || ch.featuredImage?.path,
+      });
     }
 
     // Cache the results
