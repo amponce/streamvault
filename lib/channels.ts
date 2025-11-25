@@ -188,7 +188,7 @@ export const originalChannels: Channel[] = [
   { id: "pokergo", number: 162, name: "PokerGo Free", url: "https://pokergo-pokergo-1.samsung.wurl.com/manifest/playlist.m3u8", category: "Sports" },
 ];
 
-// Horror channels - Verified working streams from free IPTV sources
+// Horror & Thriller channels - Verified working streams from free IPTV sources
 // Sources: iptv-org, Tubi, Pluto TV, and other free ad-supported services
 export const horrorChannels: Channel[] = [
   // Tubi TV Horror Channels (Most Reliable)
@@ -200,19 +200,27 @@ export const horrorChannels: Channel[] = [
   // Pluto TV Horror (Verified Working)
   { id: "pluto-horror", number: 204, name: "Pluto TV Horror", url: "http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/569546031a619b8f07ce6e25/master.m3u8", category: "Horror" },
   { id: "pluto-terror", number: 205, name: "Pluto TV Terror", url: "http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/5c6dc88fcd232425a6e0f06e/master.m3u8", category: "Horror" },
-  { id: "cine-terror", number: 206, name: "Cine Terror", url: "http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/5d8d180092e97a5e107638d3/master.m3u8", category: "Horror" },
+  { id: "pluto-thrillers", number: 206, name: "Pluto TV Thrillers", url: "http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/5b4e69e08291147bd04a9fd7/master.m3u8", category: "Horror" },
+  { id: "pluto-crime-movies", number: 207, name: "Pluto TV Crime Movies", url: "http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/5f4d8594eb979c0007706de7/master.m3u8", category: "Horror" },
+  { id: "pluto-crime-drama", number: 208, name: "Pluto TV Crime Drama", url: "http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/62e92708a7ce600007b2676a/master.m3u8", category: "Horror" },
+  { id: "cine-terror", number: 209, name: "Cine Terror", url: "http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/5d8d180092e97a5e107638d3/master.m3u8", category: "Horror" },
+  { id: "cine-terror-latam", number: 210, name: "Cine Terror LATAM", url: "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/5dcddf1ed95e740009fef7ab/master.m3u8", category: "Horror" },
 
   // Bloody Disgusting (iptv-org verified)
-  { id: "bloody-disgusting", number: 207, name: "Bloody Disgusting TV", url: "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01201-cinedigmenterta-bloodydisgus-cineverse/playlist.m3u8", category: "Horror" },
+  { id: "bloody-disgusting", number: 211, name: "Bloody Disgusting TV", url: "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01201-cinedigmenterta-bloodydisgus-cineverse/playlist.m3u8", category: "Horror" },
 
   // American Horrors (iptv-org verified)
-  { id: "american-horrors", number: 208, name: "American Horrors", url: "http://107.167.7.162:8081/playlist/amhor/playlist.m3u8", category: "Horror" },
+  { id: "american-horrors", number: 212, name: "American Horrors", url: "http://107.167.7.162:8081/playlist/amhor/playlist.m3u8", category: "Horror" },
 
   // Xtrema Terror (Brazil-based but works globally)
-  { id: "xtrema-terror", number: 209, name: "Xtrema Terror", url: "https://stmv6.voxtvhd.com.br/cineterror/cineterror/playlist.m3u8", category: "Horror" },
+  { id: "xtrema-terror", number: 213, name: "Xtrema Terror", url: "https://stmv6.voxtvhd.com.br/cineterror/cineterror/playlist.m3u8", category: "Horror" },
 
-  // Tubi Crime/Thriller (Good for horror fans)
-  { id: "cold-case-files", number: 210, name: "Cold Case Files", url: "https://livetv-fa.tubi.video/cold-case-files/playlist.m3u8", category: "Horror" },
+  // Film Noir - Classic Suspense
+  { id: "film-noir", number: 214, name: "TVS Film Noir Network", url: "https://rpn.bozztv.com/trn01/gusa-TVSFilmNoir/index.m3u8", category: "Horror" },
+
+  // True Crime (Horror-adjacent)
+  { id: "forensic-files", number: 215, name: "Forensic Files", url: "https://livetv-fa.tubi.video/forensic-files/index.m3u8", category: "Horror" },
+  { id: "filmrise-true-crime", number: 216, name: "FilmRise True Crime", url: "https://livetv-fa.tubi.video/filmrise-true-crime/index.m3u8", category: "Horror" },
 ];
 
 // Combine all channels
