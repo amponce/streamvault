@@ -190,15 +190,22 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-black group"
+      className="relative w-full h-full bg-black group touch-manipulation"
       onMouseMove={resetControlsTimer}
       onMouseLeave={() => isPlaying && setShowControls(false)}
+      onTouchStart={resetControlsTimer}
     >
       <video
         ref={videoRef}
         className="w-full h-full object-contain"
         playsInline
+        webkit-playsinline="true"
         onClick={togglePlay}
+        onTouchEnd={(e) => {
+          // Prevent double-tap zoom on mobile
+          e.preventDefault();
+          togglePlay();
+        }}
       />
 
       {/* Loading State */}
@@ -247,42 +254,42 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
         </div>
       )}
 
-      {/* Custom Controls Overlay */}
+      {/* Custom Controls Overlay - Mobile Optimized */}
       {!loading && !error && (
         <div
           className={`absolute inset-0 transition-opacity duration-300 ${
-            showControls ? 'opacity-100' : 'opacity-0'
+            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
           {/* Top Gradient */}
-          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
+          <div className="absolute top-0 left-0 right-0 h-20 md:h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
 
-          {/* Bottom Controls */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-            <div className="flex items-center justify-between gap-4">
+          {/* Bottom Controls - Responsive */}
+          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6 bg-gradient-to-t from-black/80 to-transparent safe-area-bottom">
+            <div className="flex items-center justify-between gap-2 md:gap-4">
               {/* Left Controls */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
                 {/* Play/Pause */}
                 <button
                   onClick={togglePlay}
-                  className="w-12 h-12 glass rounded-xl flex items-center justify-center hover:bg-white/10 transition-all"
+                  className="w-11 h-11 md:w-12 md:h-12 glass rounded-lg md:rounded-xl flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all touch-manipulation"
                 >
                   {isPlaying ? (
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                     </svg>
                   ) : (
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   )}
                 </button>
 
-                {/* Volume */}
-                <div className="flex items-center gap-2 group/volume">
+                {/* Volume - Hidden on mobile, visible on desktop */}
+                <div className="hidden md:flex items-center gap-2 group/volume">
                   <button
                     onClick={toggleMute}
-                    className="w-10 h-10 glass rounded-lg flex items-center justify-center hover:bg-white/10 transition-all"
+                    className="w-10 h-10 glass rounded-lg flex items-center justify-center hover:bg-white/10 transition-all touch-manipulation"
                   >
                     {isMuted || volume === 0 ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -315,18 +322,34 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
 
               {/* Center - Live Badge */}
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 rounded-lg bg-red-500/80 text-xs font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-red-500/80 text-xs font-bold flex items-center gap-1 md:gap-1.5">
+                  <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-white animate-pulse" />
                   LIVE
                 </span>
               </div>
 
               {/* Right Controls */}
               <div className="flex items-center gap-2">
+                {/* Mute button on mobile */}
+                <button
+                  onClick={toggleMute}
+                  className="w-11 h-11 md:hidden glass rounded-lg flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all touch-manipulation"
+                >
+                  {isMuted || volume === 0 ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                  )}
+                </button>
                 {/* Fullscreen */}
                 <button
                   onClick={toggleFullscreen}
-                  className="w-10 h-10 glass rounded-lg flex items-center justify-center hover:bg-white/10 transition-all"
+                  className="w-11 h-11 md:w-10 md:h-10 glass rounded-lg flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all touch-manipulation"
                 >
                   {isFullscreen ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -342,14 +365,14 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
             </div>
           </div>
 
-          {/* Center Play Button (shown when paused) */}
+          {/* Center Play Button (shown when paused) - Responsive */}
           {!isPlaying && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <button
                 onClick={togglePlay}
-                className="w-20 h-20 glass-button rounded-full flex items-center justify-center pointer-events-auto transform hover:scale-110 transition-transform"
+                className="w-16 h-16 md:w-20 md:h-20 glass-button rounded-full flex items-center justify-center pointer-events-auto transform hover:scale-110 active:scale-95 transition-transform touch-manipulation"
               >
-                <svg className="w-10 h-10 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 md:w-10 md:h-10 ml-1" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </button>
