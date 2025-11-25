@@ -640,13 +640,23 @@ export default function IPTVPlayer() {
               <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-xs md:max-w-none md:w-auto">
                 <button
                   onClick={handleAIRecommendation}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    handleAIRecommendation();
+                  }}
                   className="glass-button px-6 py-3 rounded-xl font-medium flex items-center justify-center gap-2 touch-manipulation"
                 >
                   <span className="ai-badge">AI</span>
                   <span>Surprise Me</span>
                 </button>
                 <button
-                  onClick={() => setSidebarOpen(true)}
+                  onClick={() => {
+                    setSidebarOpen(true);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    setSidebarOpen(true);
+                  }}
                   className="glass px-6 py-3 rounded-xl font-medium text-white/60 hover:text-white active:bg-white/10 transition-colors touch-manipulation"
                 >
                   Browse Channels
