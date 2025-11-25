@@ -122,18 +122,28 @@ function generateSessionId(): string {
  * Generate a Pluto stream URL from channel data
  */
 function generateStreamUrl(ch: PlutoAPIChannel): string | null {
-  // Check for pre-built stitched URL (v4/start format)
+  // Check for pre-built stitched URL (v4/start format) - these are the working URLs
   const stitchedUrl = ch.stitched?.urls?.find(u => u.type === 'hls')?.url;
   if (stitchedUrl) {
+    console.log(`Channel ${ch.name} has stitched URL`);
     return stitchedUrl;
   }
 
-  // Build URL from channel ID (v2/channels format)
+  // Build URL from channel slug (current working format)
+  const channelSlug = ch.slug;
+  if (channelSlug) {
+    const deviceId = generateDeviceId();
+    const sid = generateSessionId();
+    // Use the newer stitcher-journeys endpoint
+    return `https://service-stitcher-ipv4.clusters.pluto.tv/v2/stitch/hls/channel/${channelSlug}/master.m3u8?appName=web&appVersion=7.0.0&clientTime=0&deviceDNT=0&deviceId=${deviceId}&deviceType=web&deviceMake=Chrome&deviceModel=Chrome&deviceVersion=120.0.0&sid=${sid}&serverSideAds=false`;
+  }
+
+  // Fallback to channel ID if no slug
   const channelId = ch._id || ch.id;
   if (channelId) {
-    // Pluto's stitcher URL format
     const deviceId = generateDeviceId();
-    return `https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/${channelId}/master.m3u8?deviceId=${deviceId}&deviceType=web&deviceMake=Chrome&deviceModel=web&deviceVersion=1.0&appName=web&appVersion=1.0&deviceDNT=0&userId=&advertisingId=&serverSideAds=false`;
+    const sid = generateSessionId();
+    return `https://service-stitcher-ipv4.clusters.pluto.tv/v2/stitch/hls/channel/${channelId}/master.m3u8?appName=web&appVersion=7.0.0&deviceDNT=0&deviceId=${deviceId}&deviceType=web&sid=${sid}&serverSideAds=false`;
   }
 
   return null;
@@ -185,12 +195,21 @@ export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
 
     console.log(`Pluto API returned ${apiChannels.length} raw channels`);
 
+    let stitchedCount = 0;
+    let generatedCount = 0;
+
     for (const ch of apiChannels) {
       if (!ch.name) continue;
+
+      // Check if this channel has a stitched URL
+      const hasStitched = ch.stitched?.urls?.some(u => u.type === 'hls');
+      if (hasStitched) stitchedCount++;
 
       // Generate or extract stream URL
       const streamUrl = generateStreamUrl(ch);
       if (!streamUrl) continue;
+
+      if (!hasStitched) generatedCount++;
 
       const channelId = ch._id || ch.id || ch.slug;
       channels.push({
@@ -203,6 +222,8 @@ export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
         logo: ch.colorLogoPNG?.path || ch.thumbnail?.path || ch.logo?.path || ch.featuredImage?.path,
       });
     }
+
+    console.log(`Pluto: ${stitchedCount} with stitched URLs, ${generatedCount} with generated URLs`);
 
     // Cache the results
     plutoCache = {
