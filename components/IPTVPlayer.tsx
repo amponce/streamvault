@@ -39,6 +39,7 @@ import {
   filterValidChannels,
   stopValidation,
 } from '@/lib/streamValidator';
+import { fetchPlutoChannels, plutoToAppChannel, clearPlutoCache } from '@/lib/plutoTV';
 
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), {
   ssr: false,
@@ -83,6 +84,8 @@ export default function IPTVPlayer() {
   const [validationResults, setValidationResults] = useState<Map<string, ValidationResult>>(new Map());
   const [showDeadChannels, setShowDeadChannels] = useState(false);
   const [hideInvalidChannels, setHideInvalidChannels] = useState(false);
+  const [plutoChannels, setPlutoChannels] = useState<Channel[]>([]);
+  const [plutoLoading, setPlutoLoading] = useState(false);
   const watchStartTime = useRef<number>(0);
   const overlayTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -114,27 +117,43 @@ export default function IPTVPlayer() {
   // Time-based greeting
   const timeRecs = getTimeBasedRecommendations();
 
-  // Load broken channels and imported channels from storage
+  // Load broken channels, imported channels, and Pluto channels
   useEffect(() => {
-    const broken = loadBrokenChannels();
-    setBrokenChannels(broken);
-    const imported = loadImportedChannels();
-    setImportedChannels(imported);
+    const loadData = async () => {
+      const broken = loadBrokenChannels();
+      setBrokenChannels(broken);
+      const imported = loadImportedChannels();
+      setImportedChannels(imported);
 
-    // Load cached validation results
-    const cachedValidation = loadValidationCache();
-    if (cachedValidation.size > 0) {
-      setValidationResults(cachedValidation);
-    }
+      // Load cached validation results
+      const cachedValidation = loadValidationCache();
+      if (cachedValidation.size > 0) {
+        setValidationResults(cachedValidation);
+      }
 
-    setIsLoading(false);
+      // Fetch Pluto TV channels with fresh URLs
+      setPlutoLoading(true);
+      try {
+        const pluto = await fetchPlutoChannels();
+        const converted = pluto.map((ch, idx) => plutoToAppChannel(ch, 500 + idx));
+        setPlutoChannels(converted);
+        console.log(`Loaded ${converted.length} Pluto TV channels with fresh URLs`);
+      } catch (err) {
+        console.error('Failed to load Pluto channels:', err);
+      }
+      setPlutoLoading(false);
+
+      setIsLoading(false);
+    };
+
+    loadData();
   }, []);
 
   // Run background stream validation
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || plutoLoading) return;
 
-    const allAvailable = [...allChannels, ...importedChannels];
+    const allAvailable = [...allChannels, ...importedChannels, ...plutoChannels];
 
     // Start validation in background
     validateChannels(allAvailable, (progress) => {
@@ -167,11 +186,11 @@ export default function IPTVPlayer() {
     return () => {
       stopValidation();
     };
-  }, [isLoading, importedChannels]);
+  }, [isLoading, plutoLoading, importedChannels, plutoChannels]);
 
-  // Filter channels (including imported)
+  // Filter channels (including imported and Pluto)
   useEffect(() => {
-    const allAvailable = [...allChannels, ...importedChannels];
+    const allAvailable = [...allChannels, ...importedChannels, ...plutoChannels];
     let filtered = allAvailable.filter(ch => !brokenChannels.has(ch.id));
 
     // Filter out invalid channels if enabled
@@ -199,7 +218,7 @@ export default function IPTVPlayer() {
     }
 
     setDisplayedChannels(filtered);
-  }, [selectedCategory, searchQuery, brokenChannels, importedChannels, validationResults, hideInvalidChannels, contentFilter]);
+  }, [selectedCategory, searchQuery, brokenChannels, importedChannels, plutoChannels, validationResults, hideInvalidChannels, contentFilter]);
 
   // Update current program and progress
   useEffect(() => {
@@ -684,6 +703,14 @@ export default function IPTVPlayer() {
 
         {/* Footer */}
         <div className="p-4 border-t border-white/5 space-y-3">
+          {/* Pluto TV Loading */}
+          {plutoLoading && (
+            <div className="glass rounded-lg p-3 flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-white/60">Loading Pluto TV channels...</span>
+            </div>
+          )}
+
           {/* Validation Progress */}
           {validationProgress && validationProgress.inProgress && (
             <div className="glass rounded-lg p-3">
@@ -735,7 +762,7 @@ export default function IPTVPlayer() {
             Import M3U Playlist
           </button>
           <div className="flex items-center justify-between text-xs text-white/40">
-            <span>{displayedChannels.length} channels{importedChannels.length > 0 && ` (${importedChannels.length} imported)`}</span>
+            <span>{displayedChannels.length} channels{plutoChannels.length > 0 && ` (${plutoChannels.length} Pluto)`}{importedChannels.length > 0 && ` (${importedChannels.length} imported)`}</span>
             <div className="flex gap-2">
               {importedChannels.length > 0 && (
                 <button
@@ -1066,7 +1093,7 @@ export default function IPTVPlayer() {
                     const deadList = Array.from(validationResults.entries())
                       .filter(([, r]) => !r.isValid)
                       .map(([id, r]) => {
-                        const ch = [...allChannels, ...importedChannels].find(c => c.id === id);
+                        const ch = [...allChannels, ...importedChannels, ...plutoChannels].find(c => c.id === id);
                         return `${id}: ${ch?.name || 'Unknown'} - ${r.error || 'Unknown error'}`;
                       })
                       .join('\n');
@@ -1107,7 +1134,7 @@ export default function IPTVPlayer() {
               {Array.from(validationResults.entries())
                 .filter(([, r]) => !r.isValid)
                 .map(([id, result]) => {
-                  const channel = [...allChannels, ...importedChannels].find(ch => ch.id === id);
+                  const channel = [...allChannels, ...importedChannels, ...plutoChannels].find(ch => ch.id === id);
                   return (
                     <div key={id} className="glass rounded-lg p-3">
                       <div className="flex items-center justify-between">
