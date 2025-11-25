@@ -7,9 +7,12 @@ import { Channel } from '@/lib/channels';
 interface VideoPlayerProps {
   channel: Channel;
   onStreamError?: (channelId: string) => void;
+  onSwipeLeft?: () => void;  // Next channel
+  onSwipeRight?: () => void; // Previous channel
+  onReportDead?: (channel: Channel, error: string) => void;
 }
 
-export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps) {
+export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwipeRight, onReportDead }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -20,7 +23,18 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [reported, setReported] = useState(false);
+  const [isPiP, setIsPiP] = useState(false);
+  const [supportsPiP, setSupportsPiP] = useState(false);
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Swipe gesture tracking
+  const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+  const touchEndY = useRef<number>(0);
+  const SWIPE_THRESHOLD = 50; // Minimum distance for swipe
+  const SWIPE_RESTRAINT = 100; // Maximum perpendicular distance
 
   // Auto-hide controls
   const resetControlsTimer = useCallback(() => {
@@ -41,6 +55,7 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
 
     setLoading(true);
     setError(null);
+    setReported(false);
 
     // Clean up previous instance
     if (hlsRef.current) {
@@ -144,6 +159,45 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Check PiP support and listen for changes
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Check if PiP is supported
+    setSupportsPiP(
+      'pictureInPictureEnabled' in document &&
+      (document as Document & { pictureInPictureEnabled?: boolean }).pictureInPictureEnabled === true
+    );
+
+    const handlePiPChange = () => {
+      setIsPiP(document.pictureInPictureElement === video);
+    };
+
+    video.addEventListener('enterpictureinpicture', handlePiPChange);
+    video.addEventListener('leavepictureinpicture', handlePiPChange);
+
+    return () => {
+      video.removeEventListener('enterpictureinpicture', handlePiPChange);
+      video.removeEventListener('leavepictureinpicture', handlePiPChange);
+    };
+  }, []);
+
+  const togglePiP = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if ((video as HTMLVideoElement & { requestPictureInPicture?: () => Promise<void> }).requestPictureInPicture) {
+        await (video as HTMLVideoElement & { requestPictureInPicture: () => Promise<void> }).requestPictureInPicture();
+      }
+    } catch (err) {
+      console.error('PiP error:', err);
+    }
+  }, []);
+
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -187,13 +241,53 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
     }
   }, [channel.url]);
 
+  // Swipe gesture handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    resetControlsTimer();
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, [resetControlsTimer]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const deltaX = touchEndX.current - touchStartX.current;
+    const deltaY = touchEndY.current - touchStartY.current;
+
+    // Check if it's a horizontal swipe (not a tap or vertical scroll)
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD && Math.abs(deltaY) < SWIPE_RESTRAINT) {
+      if (deltaX > 0) {
+        // Swipe right = previous channel
+        onSwipeRight?.();
+      } else {
+        // Swipe left = next channel
+        onSwipeLeft?.();
+      }
+    } else if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+      // It's a tap, not a swipe - toggle play
+      e.preventDefault();
+      togglePlay();
+    }
+
+    // Reset touch positions
+    touchStartX.current = 0;
+    touchStartY.current = 0;
+    touchEndX.current = 0;
+    touchEndY.current = 0;
+  }, [onSwipeLeft, onSwipeRight, togglePlay]);
+
   return (
     <div
       ref={containerRef}
       className="relative w-full h-full bg-black group touch-manipulation"
       onMouseMove={resetControlsTimer}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      onTouchStart={resetControlsTimer}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       <video
         ref={videoRef}
@@ -201,11 +295,6 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
         playsInline
         webkit-playsinline="true"
         onClick={togglePlay}
-        onTouchEnd={(e) => {
-          // Prevent double-tap zoom on mobile
-          e.preventDefault();
-          togglePlay();
-        }}
       />
 
       {/* Loading State */}
@@ -232,7 +321,31 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
               </svg>
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Stream Unavailable</h3>
-            <p className="text-white/50 text-sm mb-6">{error}</p>
+            <p className="text-white/50 text-sm mb-4">{error}</p>
+
+            {/* Report Dead Link */}
+            {!reported ? (
+              <button
+                onClick={() => {
+                  setReported(true);
+                  onReportDead?.(channel, error);
+                }}
+                className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors mb-4 flex items-center gap-1 mx-auto"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                </svg>
+                Report dead link
+              </button>
+            ) : (
+              <p className="text-xs text-green-400 mb-4 flex items-center gap-1 justify-center">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Reported - thanks!
+              </p>
+            )}
+
             <div className="flex gap-3 justify-center">
               <button
                 onClick={retryStream}
@@ -346,6 +459,24 @@ export default function VideoPlayer({ channel, onStreamError }: VideoPlayerProps
                     </svg>
                   )}
                 </button>
+                {/* Picture-in-Picture */}
+                {supportsPiP && (
+                  <button
+                    onClick={togglePiP}
+                    className="w-11 h-11 md:w-10 md:h-10 glass rounded-lg flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all touch-manipulation"
+                    title="Picture-in-Picture"
+                  >
+                    {isPiP ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V5a2 2 0 012-2h8a2 2 0 012 2v5a2 2 0 01-2 2h-2M3 13h8a2 2 0 012 2v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4a2 2 0 012-2z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h2M4 8h4m12 0V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h4" />
+                      </svg>
+                    )}
+                  </button>
+                )}
                 {/* Fullscreen */}
                 <button
                   onClick={toggleFullscreen}
