@@ -415,7 +415,7 @@ export default function IPTVPlayer() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold gradient-text">Movie Streams</h1>
+                <h1 className="text-xl font-bold gradient-text">Show Streams</h1>
                 <p className="text-xs text-white/40">{timeRecs.greeting}</p>
               </div>
             </div>
@@ -828,7 +828,7 @@ export default function IPTVPlayer() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h1 className="text-2xl md:text-4xl font-bold gradient-text mb-2 md:mb-4">Movie Streams</h1>
+              <h1 className="text-2xl md:text-4xl font-bold gradient-text mb-2 md:mb-4">Show Streams</h1>
               <p className="text-white/40 text-center text-sm md:text-base max-w-md mb-6 md:mb-8 px-4">
                 {timeRecs.greeting}! Select a channel from the guide or let AI find something perfect for you.
               </p>
