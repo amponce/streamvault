@@ -185,6 +185,8 @@ export const originalChannels: Channel[] = [
   { id: "horizon-sports", number: 160, name: "Horizon Sports", url: "https://horisonssport.cdn.vustreams.com/live/cd533d12-01f8-40c7-b0f4-5626b119f787/live.isml/playlist.m3u8", category: "Sports" },
   { id: "wpt", number: 161, name: "World Poker Tour", url: "https://wpt-wpt-samsung.amagi.tv/playlist.m3u8", category: "Sports" },
   { id: "pokergo", number: 162, name: "PokerGo Free", url: "https://pokergo-pokergo-1.samsung.wurl.com/manifest/playlist.m3u8", category: "Sports" },
+  // Albanian Channels
+  { id: "zjarr-tv", number: 163, name: "Zjarr TV (Albanian)", url: "https://live1.mediadesk.al/zjarrtv.m3u8", category: "Entertainment" },
 ];
 
 // Horror & Thriller channels - Verified working streams from free IPTV sources
