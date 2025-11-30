@@ -10,11 +10,61 @@ import {
   getQuickPicks,
   getLastWatched,
   recordWatch,
-  categoryIcons,
   categoryColors,
   Mood,
   getChannelsByMood,
 } from '@/lib/aiFeatures';
+import {
+  Tv,
+  Home,
+  Newspaper,
+  Trophy,
+  Clapperboard,
+  Film,
+  Music,
+  Baby,
+  GraduationCap,
+  Skull,
+  Laugh,
+  Flame,
+  Smile,
+  Brain,
+  PartyPopper,
+  Ghost,
+  Radio,
+  MonitorPlay,
+} from 'lucide-react';
+
+// Category icon components using Lucide
+const categoryIconComponents: Record<string, React.ReactNode> = {
+  All: <Tv size={16} />,
+  Local: <Home size={16} />,
+  News: <Newspaper size={16} />,
+  Sports: <Trophy size={16} />,
+  Entertainment: <Clapperboard size={16} />,
+  Movies: <Film size={16} />,
+  Music: <Music size={16} />,
+  Kids: <Baby size={16} />,
+  Documentary: <GraduationCap size={16} />,
+  Horror: <Skull size={16} />,
+  Comedy: <Laugh size={16} />,
+};
+
+// Mood icon components
+const moodIcons: Record<Mood, React.ReactNode> = {
+  excited: <Flame size={24} />,
+  relaxed: <Smile size={24} />,
+  informed: <Brain size={24} />,
+  entertained: <PartyPopper size={24} />,
+  scared: <Ghost size={24} />,
+};
+
+// Content filter icons
+const contentFilterIcons: Record<string, React.ReactNode> = {
+  movies: <Film size={14} />,
+  tv: <MonitorPlay size={14} />,
+  all: <Radio size={14} />,
+};
 import {
   getCurrentProgram,
   getUpcomingPrograms,
@@ -449,10 +499,10 @@ export default function IPTVPlayer() {
           {/* Content Type Filter */}
           <div className="flex gap-1 p-1 glass rounded-xl mb-3">
             {([
-              { key: 'movies' as ContentFilter, label: 'Movies', icon: '🎬' },
-              { key: 'tv' as ContentFilter, label: 'TV', icon: '📺' },
-              { key: 'all' as ContentFilter, label: 'All', icon: '📡' },
-            ]).map(({ key, label, icon }) => (
+              { key: 'movies' as ContentFilter, label: 'Movies' },
+              { key: 'tv' as ContentFilter, label: 'TV' },
+              { key: 'all' as ContentFilter, label: 'All' },
+            ]).map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => {
@@ -465,7 +515,7 @@ export default function IPTVPlayer() {
                     : 'text-white/50 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <span>{icon}</span>
+                {contentFilterIcons[key]}
                 <span>{label}</span>
               </button>
             ))}
@@ -510,7 +560,7 @@ export default function IPTVPlayer() {
                       : 'category-pill text-white/60 hover:text-white'
                   }`}
                 >
-                  <span>{categoryIcons[cat]}</span>
+                  <span>{categoryIconComponents[cat]}</span>
                   <span>{cat}</span>
                 </button>
               ))}
@@ -591,7 +641,7 @@ export default function IPTVPlayer() {
                     className="w-full glass-card rounded-xl p-4 text-left channel-card"
                   >
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="text-lg">{categoryIcons[channel.category]}</span>
+                      <span className="text-lg">{categoryIconComponents[channel.category]}</span>
                       <span className="font-medium text-sm">{channel.name}</span>
                       {selectedChannel?.id === channel.id && (
                         <span className="ml-auto px-2 py-0.5 rounded-full bg-violet-500/30 text-violet-300 text-xs">
@@ -659,7 +709,7 @@ export default function IPTVPlayer() {
                         onClick={() => playChannel(channel)}
                         className="glass-card rounded-xl p-3 text-left channel-card"
                       >
-                        <div className="text-2xl mb-2">{categoryIcons[channel.category]}</div>
+                        <div className="text-2xl mb-2">{categoryIconComponents[channel.category]}</div>
                         <div className="text-sm font-medium truncate">{channel.name}</div>
                         <div className="text-xs text-white/40">{channel.category}</div>
                       </button>
@@ -673,18 +723,18 @@ export default function IPTVPlayer() {
                 <div className="text-xs text-white/40 uppercase tracking-wider mb-3">How are you feeling?</div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { mood: 'excited' as Mood, emoji: '🔥', label: 'Pumped' },
-                    { mood: 'relaxed' as Mood, emoji: '😌', label: 'Chill' },
-                    { mood: 'informed' as Mood, emoji: '🧠', label: 'Curious' },
-                    { mood: 'entertained' as Mood, emoji: '😄', label: 'Fun' },
-                    { mood: 'scared' as Mood, emoji: '😱', label: 'Thrills' },
-                  ].map(({ mood, emoji, label }) => (
+                    { mood: 'excited' as Mood, label: 'Pumped' },
+                    { mood: 'relaxed' as Mood, label: 'Chill' },
+                    { mood: 'informed' as Mood, label: 'Curious' },
+                    { mood: 'entertained' as Mood, label: 'Fun' },
+                    { mood: 'scared' as Mood, label: 'Thrills' },
+                  ].map(({ mood, label }) => (
                     <button
                       key={mood}
                       onClick={() => handleMoodSelection(mood)}
                       className="glass-card rounded-xl p-3 text-center channel-card"
                     >
-                      <div className="text-2xl mb-1">{emoji}</div>
+                      <div className="flex justify-center mb-1">{moodIcons[mood]}</div>
                       <div className="text-xs text-white/60">{label}</div>
                     </button>
                   ))}
@@ -701,7 +751,7 @@ export default function IPTVPlayer() {
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${categoryColors[lastWatched.category]} flex items-center justify-center text-xl`}>
-                        {categoryIcons[lastWatched.category]}
+                        {categoryIconComponents[lastWatched.category]}
                       </div>
                       <div>
                         <div className="font-medium">{lastWatched.name}</div>
@@ -985,7 +1035,7 @@ export default function IPTVPlayer() {
                   }}
                   className="w-full glass p-3 rounded-xl text-left hover:bg-white/5 transition-all"
                 >
-                  <div className="font-medium text-sm">{categoryIcons[cat]} {cat}</div>
+                  <div className="font-medium text-sm">{categoryIconComponents[cat]} {cat}</div>
                   <div className="text-xs text-white/40">{timeRecs.mood}</div>
                 </button>
               ))}
