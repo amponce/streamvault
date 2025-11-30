@@ -113,7 +113,7 @@ const tvCategories = new Set(['Local', 'News', 'Sports', 'Entertainment', 'Music
 export default function IPTVPlayer() {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
-  const [contentFilter, setContentFilter] = useState<ContentFilter>('movies');
+  const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile
   const [displayedChannels, setDisplayedChannels] = useState<Channel[]>([]);
@@ -428,6 +428,11 @@ export default function IPTVPlayer() {
   const handleClearImported = useCallback(() => {
     clearImportedChannels();
     setImportedChannels([]);
+  }, []);
+
+  const handleClearBroken = useCallback(() => {
+    clearBrokenChannels();
+    setBrokenChannels(new Set());
   }, []);
 
   const quickPicks = getQuickPicks(6);
@@ -819,7 +824,12 @@ export default function IPTVPlayer() {
             {/* Clear/Reset buttons */}
             {importedChannels.length > 0 && (
               <button onClick={handleClearImported} className="text-[10px] text-red-400 hover:text-red-300">
-                Clear
+                Clear imported
+              </button>
+            )}
+            {brokenChannels.size > 0 && (
+              <button onClick={handleClearBroken} className="text-[10px] text-orange-400 hover:text-orange-300">
+                Reset broken ({brokenChannels.size})
               </button>
             )}
           </div>
