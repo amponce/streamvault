@@ -198,6 +198,16 @@ export const horrorChannels: Channel[] = [
   { id: "ghosts-are-real", number: 202, name: "Ghosts are Real", url: "https://live-manifest.production-public.tubi.io/live/0893a942-6252-4604-9e43-147c920a3250/playlist.m3u8", category: "Horror" },
   { id: "haunt-tv", number: 203, name: "HauntTV", url: "https://live-manifest.production-public.tubi.io/live/e1314865-409b-4349-87b8-550453f4e468/playlist.m3u8", category: "Horror" },
 
+  // Additional Horror Channels
+  { id: "american-horrors", number: 204, name: "American Horrors", url: "https://v4.prod.liveshare.vdo.ninja/ahorrors.m3u8", category: "Horror" },
+  { id: "osi-74", number: 205, name: "OSI 74", url: "https://v396f74a4.live-inside-osi74.simplestreamcdn.com/live/osi74/slice1/index.m3u8", category: "Horror" },
+  { id: "classic-monsters", number: 206, name: "Classic Monsters Channel", url: "https://a.jsrdn.com/broadcast/ab2bc9cb47/playlist.m3u8", category: "Horror" },
+  { id: "horror-machine", number: 207, name: "Horror Machine", url: "https://a.jsrdn.com/broadcast/fb5f53c4bf/playlist.m3u8", category: "Horror" },
+  { id: "graveyard-shift", number: 208, name: "Graveyard Shift", url: "https://linear-262.frequency.stream/dist/vdx/262/hls/master/playlist.m3u8", category: "Horror" },
+  { id: "midnight-pulp", number: 209, name: "Midnight Pulp Free", url: "https://bcovlive-a.akamaihd.net/5c575d8c66b04b6ea650e69e7a20f192/us-east-1/6057958202001/playlist.m3u8", category: "Horror" },
+  { id: "sleazy-horror", number: 210, name: "Sleazy Horror", url: "https://dygvideo-cdn.akamaized.net/feeds/sleazyhorror.m3u8", category: "Horror" },
+  { id: "terror-tv", number: 211, name: "Terror TV", url: "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01411-terrotv-canada-ono/playlist.m3u8", category: "Horror" },
+
   // Bloody Disgusting (iptv-org verified)
   { id: "bloody-disgusting", number: 214, name: "Bloody Disgusting TV", url: "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01201-cinedigmenterta-bloodydisgus-cineverse/playlist.m3u8", category: "Horror" },
 
