@@ -13,6 +13,7 @@ import {
   categoryColors,
   Mood,
   getChannelsByMood,
+  loadUserPreferences,
 } from '@/lib/aiFeatures';
 import {
   Tv,
@@ -33,6 +34,9 @@ import {
   Ghost,
   Radio,
   MonitorPlay,
+  Send,
+  Loader2,
+  Sparkles,
 } from 'lucide-react';
 
 // Category icon components using Lucide
@@ -136,6 +140,12 @@ export default function IPTVPlayer() {
   const [hideInvalidChannels, setHideInvalidChannels] = useState(true);
   const [plutoChannels, setPlutoChannels] = useState<Channel[]>([]);
   const [plutoLoading, setPlutoLoading] = useState(false);
+  const [aiChatInput, setAiChatInput] = useState('');
+  const [aiChatLoading, setAiChatLoading] = useState(false);
+  const [aiChatResponse, setAiChatResponse] = useState<{
+    message: string;
+    suggestedCategories: string[];
+  } | null>(null);
   const watchStartTime = useRef<number>(0);
   const overlayTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -435,6 +445,55 @@ export default function IPTVPlayer() {
     setBrokenChannels(new Set());
   }, []);
 
+  const handleAiChat = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiChatInput.trim() || aiChatLoading) return;
+
+    setAiChatLoading(true);
+    setAiChatResponse(null);
+
+    try {
+      const prefs = loadUserPreferences();
+      const recentCategories = [...new Set(
+        prefs.watchHistory.slice(-10).map(h => h.category)
+      )];
+
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: aiChatInput,
+          context: {
+            recentCategories,
+            mood: null,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        setAiChatResponse({
+          message: data.error,
+          suggestedCategories: [],
+        });
+      } else {
+        setAiChatResponse({
+          message: data.message,
+          suggestedCategories: data.suggestedCategories || [],
+        });
+      }
+    } catch {
+      setAiChatResponse({
+        message: 'Sorry, I couldn\'t connect to the AI. Try again later!',
+        suggestedCategories: [],
+      });
+    } finally {
+      setAiChatLoading(false);
+      setAiChatInput('');
+    }
+  }, [aiChatInput, aiChatLoading]);
+
   const quickPicks = getQuickPicks(6);
   const lastWatched = getLastWatched();
 
@@ -680,27 +739,75 @@ export default function IPTVPlayer() {
           ) : (
             /* Discover View */
             <div className="space-y-6">
-              {/* AI Recommendation */}
+              {/* AI Chat */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="ai-badge">AI</span>
-                  <span className="text-xs text-white/40 uppercase tracking-wider">For You</span>
+                  <span className="ai-badge flex items-center gap-1">
+                    <Sparkles size={12} />
+                    AI
+                  </span>
+                  <span className="text-xs text-white/40 uppercase tracking-wider">Ask Claude</span>
                 </div>
-                <button
-                  onClick={handleAIRecommendation}
-                  className="w-full glass-card rounded-xl p-4 text-left channel-card border-gradient overflow-hidden relative"
-                >
-                  <div className="relative z-10">
-                    <div className="text-lg font-bold mb-1">What should I watch?</div>
-                    <div className="text-sm text-white/60">{timeRecs.mood}</div>
-                    <div className="mt-3 flex items-center gap-2 text-violet-400 text-sm font-medium">
-                      <span>Get AI suggestion</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </div>
+
+                {/* Chat Input */}
+                <form onSubmit={handleAiChat} className="mb-3">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={aiChatInput}
+                      onChange={(e) => setAiChatInput(e.target.value)}
+                      placeholder="What should I watch tonight?"
+                      className="w-full px-4 py-3 pr-12 glass-input rounded-xl text-sm text-white placeholder:text-white/40"
+                      disabled={aiChatLoading}
+                    />
+                    <button
+                      type="submit"
+                      disabled={aiChatLoading || !aiChatInput.trim()}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {aiChatLoading ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Send size={16} />
+                      )}
+                    </button>
                   </div>
-                </button>
+                </form>
+
+                {/* AI Response */}
+                {aiChatResponse && (
+                  <div className="glass-card rounded-xl p-4 border-gradient">
+                    <p className="text-sm text-white/90 mb-3">{aiChatResponse.message}</p>
+                    {aiChatResponse.suggestedCategories.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {aiChatResponse.suggestedCategories.map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => {
+                              setSelectedCategory(cat as Category);
+                              setViewMode('browse');
+                            }}
+                            className="px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-300 text-xs hover:bg-violet-500/30 transition-all flex items-center gap-1"
+                          >
+                            {categoryIconComponents[cat]}
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Quick suggestion button */}
+                {!aiChatResponse && (
+                  <button
+                    onClick={handleAIRecommendation}
+                    className="w-full glass-card rounded-xl p-4 text-left channel-card"
+                  >
+                    <div className="text-sm font-medium mb-1">{timeRecs.greeting}! {timeRecs.mood}</div>
+                    <div className="text-xs text-white/50">Tap for a quick AI suggestion</div>
+                  </button>
+                )}
               </div>
 
               {/* Quick Picks */}
