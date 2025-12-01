@@ -101,12 +101,27 @@ function mapGroupToCategory(groupTitle: string): string {
 
 /**
  * Fetch and parse M3U playlist from URL
+ * Uses server-side proxy to bypass CORS for external URLs
  */
 export async function fetchAndParseM3U(url: string): Promise<Channel[]> {
   try {
-    const response = await fetch(url);
+    // Use the server-side proxy to bypass CORS
+    // This handles external M3U files that don't send CORS headers
+    const proxyUrl = `/api/fetch-m3u?url=${encodeURIComponent(url)}`;
+
+    const response = await fetch(proxyUrl);
     if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.status}`);
+      // Try to get error message from response
+      let errorMsg = `Failed to fetch: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMsg = errorData.error;
+        }
+      } catch {
+        // Ignore JSON parse errors
+      }
+      throw new Error(errorMsg);
     }
 
     const content = await response.text();
