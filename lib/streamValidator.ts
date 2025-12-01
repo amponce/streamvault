@@ -70,8 +70,25 @@ function saveValidationCache(): void {
   }
 }
 
+// Known working CDN patterns that we trust without validation
+const TRUSTED_PATTERNS = [
+  'pluto.tv',
+  'plutotv',
+  'service-stitcher',
+  'stitcher-ipv4',
+  'samsung.wurl.com',
+  'plex.wurl.com',
+  'amagi.tv',
+  'akamaized.net',
+  'akamaihd.net',
+  'tubi.io',
+  'vustreams.com',
+  'moveonjoy.com',
+];
+
 /**
  * Validate a single stream URL by attempting to fetch the m3u8 manifest
+ * Note: Due to CORS, many valid streams will fail validation but work in HLS.js
  */
 async function validateStream(
   channel: Channel,
@@ -79,6 +96,17 @@ async function validateStream(
 ): Promise<ValidationResult> {
   const startTime = performance.now();
   const now = Date.now();
+
+  // If URL matches trusted CDN pattern, assume valid without checking
+  const isTrusted = TRUSTED_PATTERNS.some(pattern => channel.url.includes(pattern));
+  if (isTrusted) {
+    return {
+      channelId: channel.id,
+      isValid: true,
+      responseTime: 0,
+      checkedAt: now,
+    };
+  }
 
   try {
     // Create timeout for this specific request
@@ -91,10 +119,8 @@ async function validateStream(
       method: 'GET',
       signal,
       headers: {
-        // Try common headers that might help
         'Accept': '*/*',
       },
-      // Use cors mode to actually see the response
       mode: 'cors',
     });
 
@@ -102,10 +128,20 @@ async function validateStream(
     const responseTime = performance.now() - startTime;
 
     if (!response.ok) {
+      // Only mark as truly invalid for 404/410
+      if (response.status === 404 || response.status === 410) {
+        return {
+          channelId: channel.id,
+          isValid: false,
+          error: `HTTP ${response.status}`,
+          responseTime,
+          checkedAt: now,
+        };
+      }
+      // For other errors, give benefit of doubt
       return {
         channelId: channel.id,
-        isValid: false,
-        error: `HTTP ${response.status}`,
+        isValid: true,
         responseTime,
         checkedAt: now,
       };
@@ -123,40 +159,35 @@ async function validateStream(
       checkedAt: now,
     };
   } catch (error) {
-    // CORS errors are common - try no-cors as fallback
-    try {
-      await fetch(channel.url, {
-        method: 'HEAD',
-        signal,
-        mode: 'no-cors',
-      });
+    // CORS errors are extremely common for valid streams
+    const responseTime = performance.now() - startTime;
+    const errorMsg = error instanceof Error ? error.message : 'Network error';
 
-      // With no-cors, we can't read the response, but if it doesn't throw,
-      // the server at least responded. Mark as valid since many streams
-      // block CORS but work in video players
+    // Only mark as truly invalid for clear connection failures
+    const isDefinitelyDead =
+      errorMsg.includes('ERR_CONNECTION_REFUSED') ||
+      errorMsg.includes('ERR_NAME_NOT_RESOLVED') ||
+      errorMsg.includes('ENOTFOUND') ||
+      errorMsg.includes('ECONNREFUSED');
+
+    if (isDefinitelyDead) {
       return {
         channelId: channel.id,
-        isValid: true, // Assume valid - let HLS.js be the final judge
-        error: undefined,
-        responseTime: performance.now() - startTime,
-        checkedAt: now,
-      };
-    } catch {
-      // Even if no-cors fails, many valid streams block all preflight/HEAD requests
-      // but work fine when HLS.js actually requests segments.
-      // Only mark as truly invalid if this is a known bad pattern
-      const errorMsg = error instanceof Error ? error.message : 'Network error';
-
-      // Be lenient - assume valid unless we got a clear server rejection
-      // HLS.js will be the final judge when actually playing
-      return {
-        channelId: channel.id,
-        isValid: true, // Give benefit of doubt - let HLS.js decide
-        error: `Unchecked: ${errorMsg}`,
-        responseTime: performance.now() - startTime,
+        isValid: false,
+        error: errorMsg,
+        responseTime,
         checkedAt: now,
       };
     }
+
+    // For CORS and other errors, assume valid (HLS.js will confirm)
+    return {
+      channelId: channel.id,
+      isValid: true,
+      error: `Unchecked: ${errorMsg}`,
+      responseTime,
+      checkedAt: now,
+    };
   }
 }
 
