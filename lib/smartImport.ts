@@ -2,12 +2,13 @@
  * Smart M3U Import System
  * - Validates streams before adding
  * - Filters by country/language
- * - Detects and filters NSFW content
+ * - Refreshes Pluto TV URLs with fresh session tokens
  * - Deduplicates against existing channels
  * - Supports GitHub URLs
  */
 
 import { Channel } from './channels';
+import { fetchPlutoChannels, PlutoChannel } from './plutoTV';
 
 // Extended M3U entry with full metadata
 export interface ExtendedM3UEntry {
@@ -55,7 +56,7 @@ export interface ValidationStatus {
 
 // Progress callback
 export type ImportProgressCallback = (progress: {
-  phase: 'fetching' | 'parsing' | 'validating' | 'filtering' | 'complete';
+  phase: 'fetching' | 'parsing' | 'refreshing' | 'validating' | 'filtering' | 'complete';
   current: number;
   total: number;
   message: string;
@@ -79,6 +80,120 @@ const COUNTRY_CODES: Record<string, string> = {
   'vietnam': 'VN', 'pakistan': 'PK', 'bangladesh': 'BD', 'nigeria': 'NG',
   'kenya': 'KE', 'saudi arabia': 'SA', 'uae': 'AE', 'qatar': 'QA',
 };
+
+// Cache for Pluto channels during import
+let plutoChannelsCache: PlutoChannel[] | null = null;
+
+/**
+ * Check if a URL is a Pluto TV stream URL
+ */
+function isPlutoTVUrl(url: string): boolean {
+  return url.includes('pluto.tv') ||
+         url.includes('plutotv') ||
+         url.includes('service-stitcher') ||
+         url.includes('stitcher-ipv4');
+}
+
+/**
+ * Extract channel ID from a Pluto TV URL
+ */
+function extractPlutoChannelId(url: string): string | null {
+  // Match patterns like /channel/5d14fc31252d35decbc4080b/ or /channel/slug-name/
+  const match = url.match(/\/channel\/([^\/]+)\//);
+  return match ? match[1] : null;
+}
+
+/**
+ * Refresh a Pluto TV URL with a fresh session token
+ * Returns null if unable to find a fresh URL
+ */
+async function refreshPlutoUrl(url: string, channelName: string): Promise<string | null> {
+  try {
+    // Fetch fresh Pluto channels if not cached
+    if (!plutoChannelsCache) {
+      plutoChannelsCache = await fetchPlutoChannels();
+    }
+
+    if (plutoChannelsCache.length === 0) {
+      console.log('Could not fetch Pluto channels for refresh');
+      return null;
+    }
+
+    // Try to match by channel ID first
+    const channelId = extractPlutoChannelId(url);
+    if (channelId) {
+      const byId = plutoChannelsCache.find(ch =>
+        ch.id.includes(channelId) || ch.slug === channelId
+      );
+      if (byId) {
+        console.log(`Refreshed Pluto URL for ${channelName} by ID match`);
+        return byId.streamUrl;
+      }
+    }
+
+    // Try to match by name (fuzzy)
+    const normalizedName = channelName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const byName = plutoChannelsCache.find(ch => {
+      const plutoName = ch.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return plutoName === normalizedName ||
+             plutoName.includes(normalizedName) ||
+             normalizedName.includes(plutoName);
+    });
+
+    if (byName) {
+      console.log(`Refreshed Pluto URL for ${channelName} by name match -> ${byName.name}`);
+      return byName.streamUrl;
+    }
+
+    console.log(`Could not match Pluto channel: ${channelName}`);
+    return null;
+  } catch (error) {
+    console.error('Error refreshing Pluto URL:', error);
+    return null;
+  }
+}
+
+/**
+ * Refresh all Pluto TV URLs in a list of entries
+ */
+async function refreshPlutoUrls(
+  entries: ExtendedM3UEntry[],
+  onProgress?: (refreshed: number, total: number) => void
+): Promise<ExtendedM3UEntry[]> {
+  const plutoEntries = entries.filter(e => isPlutoTVUrl(e.url));
+
+  if (plutoEntries.length === 0) {
+    return entries;
+  }
+
+  console.log(`Found ${plutoEntries.length} Pluto TV entries to refresh`);
+
+  // Pre-fetch Pluto channels
+  plutoChannelsCache = await fetchPlutoChannels();
+
+  let refreshed = 0;
+  const refreshedUrls = new Map<string, string>();
+
+  for (const entry of plutoEntries) {
+    const freshUrl = await refreshPlutoUrl(entry.url, entry.name);
+    if (freshUrl) {
+      refreshedUrls.set(entry.url, freshUrl);
+      refreshed++;
+    }
+    onProgress?.(refreshed, plutoEntries.length);
+  }
+
+  console.log(`Successfully refreshed ${refreshed}/${plutoEntries.length} Pluto URLs`);
+
+  // Update entries with fresh URLs
+  return entries.map(entry => {
+    const freshUrl = refreshedUrls.get(entry.url);
+    if (freshUrl) {
+      return { ...entry, url: freshUrl };
+    }
+    return entry;
+  });
+}
 
 /**
  * Convert GitHub URL to raw content URL
@@ -402,12 +517,27 @@ export async function smartImport(
   // Phase 2: Parse
   onProgress?.({ phase: 'parsing', current: 0, total: 1, message: 'Parsing playlist...' });
 
-  const entries = parseM3UExtended(content);
+  let entries = parseM3UExtended(content);
   stats.total = entries.length;
 
   if (entries.length === 0) {
     errors.push('No channels found in playlist');
     return { channels: [], stats, errors };
+  }
+
+  // Phase 2.5: Refresh Pluto TV URLs with fresh session tokens
+  const plutoCount = entries.filter(e => isPlutoTVUrl(e.url)).length;
+  if (plutoCount > 0) {
+    onProgress?.({ phase: 'refreshing', current: 0, total: plutoCount, message: `Refreshing ${plutoCount} Pluto TV URLs...` });
+
+    entries = await refreshPlutoUrls(entries, (refreshed, total) => {
+      onProgress?.({
+        phase: 'refreshing',
+        current: refreshed,
+        total,
+        message: `Refreshing Pluto URLs (${refreshed}/${total})...`
+      });
+    });
   }
 
   // Phase 3: Filter
