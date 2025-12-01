@@ -9,6 +9,7 @@ export interface Channel {
 export const categories = [
   'Favorites',
   'All',
+  'Imported',
   'Local',
   'News',
   'Sports',

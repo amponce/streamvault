@@ -265,9 +265,13 @@ export default function IPTVPlayer() {
       filtered = filtered.filter(ch => tvCategories.has(ch.category));
     }
 
-    // Handle Favorites category
+    // Handle special categories
     if (selectedCategory === 'Favorites') {
       filtered = filtered.filter(ch => favoriteIds.has(ch.id));
+    } else if (selectedCategory === 'Imported') {
+      // Show only imported channels (not original/built-in)
+      const importedIds = new Set(importedChannels.map(c => c.id));
+      filtered = filtered.filter(ch => importedIds.has(ch.id));
     } else if (selectedCategory !== 'All') {
       filtered = filtered.filter(ch => ch.category === selectedCategory);
     }
@@ -791,6 +795,11 @@ export default function IPTVPlayer() {
                   {cat === 'Favorites' && favoriteIds.size > 0 && (
                     <span className="ml-0.5 px-1.5 py-0.5 text-[10px] bg-red-500/80 rounded-full">
                       {favoriteIds.size}
+                    </span>
+                  )}
+                  {cat === 'Imported' && importedChannels.length > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 text-[10px] bg-cyan-500/80 rounded-full">
+                      {importedChannels.length}
                     </span>
                   )}
                 </button>
