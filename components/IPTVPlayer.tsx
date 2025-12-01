@@ -1559,7 +1559,7 @@ export default function IPTVPlayer() {
                   }}
                   onPlayChannel={(channel) => {
                     setImportedChannels(prev => {
-                      const exists = prev.some(c => c.streamUrl === channel.streamUrl);
+                      const exists = prev.some(c => c.url === channel.url);
                       if (!exists) {
                         const updated = [...prev, channel];
                         saveImportedChannels(updated);
