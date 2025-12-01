@@ -15,63 +15,13 @@ import {
   getChannelsByMood,
   loadUserPreferences,
 } from '@/lib/aiFeatures';
+import { Send, Loader2, Sparkles, Heart, Settings } from 'lucide-react';
 import {
-  Tv,
-  Home,
-  Newspaper,
-  Trophy,
-  Clapperboard,
-  Film,
-  Music,
-  Baby,
-  GraduationCap,
-  Skull,
-  Laugh,
-  Flame,
-  Smile,
-  Brain,
-  PartyPopper,
-  Ghost,
-  Radio,
-  MonitorPlay,
-  Send,
-  Loader2,
-  Sparkles,
-  Heart,
-  Settings,
-} from 'lucide-react';
-
-// Category icon components using Lucide
-const categoryIconComponents: Record<string, React.ReactNode> = {
-  Favorites: <Heart size={16} />,
-  All: <Tv size={16} />,
-  Local: <Home size={16} />,
-  News: <Newspaper size={16} />,
-  Sports: <Trophy size={16} />,
-  Entertainment: <Clapperboard size={16} />,
-  Movies: <Film size={16} />,
-  Music: <Music size={16} />,
-  Kids: <Baby size={16} />,
-  Documentary: <GraduationCap size={16} />,
-  Horror: <Skull size={16} />,
-  Comedy: <Laugh size={16} />,
-};
-
-// Mood icon components
-const moodIcons: Record<Mood, React.ReactNode> = {
-  excited: <Flame size={24} />,
-  relaxed: <Smile size={24} />,
-  informed: <Brain size={24} />,
-  entertained: <PartyPopper size={24} />,
-  scared: <Ghost size={24} />,
-};
-
-// Content filter icons
-const contentFilterIcons: Record<string, React.ReactNode> = {
-  movies: <Film size={14} />,
-  tv: <MonitorPlay size={14} />,
-  all: <Radio size={14} />,
-};
+  CATEGORY_ICONS,
+  MOOD_ICONS,
+  CONTENT_FILTER_ICONS,
+} from '@/constants/icons';
+import { ChannelCard } from './ChannelCard';
 import {
   getCurrentProgram,
   getUpcomingPrograms,
@@ -223,8 +173,8 @@ export default function IPTVPlayer() {
     }, 4000);
   }, []);
 
-  // Time-based greeting
-  const timeRecs = getTimeBasedRecommendations();
+  // Time-based greeting (memoized to avoid recalculation on every render)
+  const timeRecs = useMemo(() => getTimeBasedRecommendations(), []);
 
   // Load broken channels, imported channels, and Pluto channels
   useEffect(() => {
@@ -704,8 +654,9 @@ export default function IPTVPlayer() {
     }
   }, [aiChatInput, aiChatLoading]);
 
-  const quickPicks = getQuickPicks(6);
-  const lastWatched = getLastWatched();
+  // Memoize quick picks and last watched to avoid recalculation
+  const quickPicks = useMemo(() => getQuickPicks(6), []);
+  const lastWatched = useMemo(() => getLastWatched(), []);
 
   return (
     <div className="flex h-screen animated-bg text-white overflow-hidden relative">
@@ -789,7 +740,7 @@ export default function IPTVPlayer() {
                     : 'text-white/50 hover:text-white hover:bg-white/5'
                 }`}
               >
-                {contentFilterIcons[key]}
+                {CONTENT_FILTER_ICONS[key]}
                 <span>{label}</span>
               </button>
             ))}
@@ -834,7 +785,7 @@ export default function IPTVPlayer() {
                       : 'category-pill text-white/60 hover:text-white'
                   }`}
                 >
-                  <span>{categoryIconComponents[cat]}</span>
+                  <span>{CATEGORY_ICONS[cat]}</span>
                   <span>{cat}</span>
                   {cat === 'Favorites' && favoriteIds.size > 0 && (
                     <span className="ml-0.5 px-1.5 py-0.5 text-[10px] bg-red-500/80 rounded-full">
@@ -871,63 +822,15 @@ export default function IPTVPlayer() {
                 </div>
               ) : (
                 displayedChannels.map((channel, index) => (
-                  <button
+                  <ChannelCard
                     key={channel.id}
-                    onClick={() => playChannel(channel)}
-                    className={`w-full glass-card channel-card rounded-xl p-3 text-left fade-in ${
-                      selectedChannel?.id === channel.id
-                        ? 'glass-button-active glow-purple'
-                        : ''
-                    }`}
-                    style={{ animationDelay: `${index * 30}ms` }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-lg font-bold ${
-                        selectedChannel?.id === channel.id
-                          ? 'bg-white/20'
-                          : `bg-gradient-to-br ${categoryColors[channel.category] || 'from-violet-500 to-purple-500'} opacity-80`
-                      }`}>
-                        {channel.number}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate flex items-center gap-1.5">
-                          {channel.name}
-                          {channel.id.startsWith('pluto-') && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-cyan-500 to-blue-500 rounded text-white">
-                              PLUTO
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-white/40">{channel.category}</span>
-                          <span className="w-1.5 h-1.5 rounded-full status-live" />
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(channel);
-                        }}
-                        className={`p-2 rounded-lg transition-all ${
-                          isFavorite(channel.id)
-                            ? 'text-red-500 hover:text-red-400'
-                            : 'text-white/30 hover:text-white/60'
-                        }`}
-                        title={isFavorite(channel.id) ? 'Remove from favorites' : 'Add to favorites'}
-                      >
-                        <Heart
-                          size={18}
-                          fill={isFavorite(channel.id) ? 'currentColor' : 'none'}
-                        />
-                      </button>
-                      {selectedChannel?.id === channel.id && (
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 text-xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 pulse-live" />
-                          <span>LIVE</span>
-                        </div>
-                      )}
-                    </div>
-                  </button>
+                    channel={channel}
+                    isSelected={selectedChannel?.id === channel.id}
+                    isFavorite={isFavorite(channel.id)}
+                    animationDelay={index * 30}
+                    onPlay={() => playChannel(channel)}
+                    onToggleFavorite={() => toggleFavorite(channel)}
+                  />
                 ))
               )}
             </div>
@@ -945,7 +848,7 @@ export default function IPTVPlayer() {
                     className="w-full glass-card rounded-xl p-4 text-left channel-card"
                   >
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="text-lg">{categoryIconComponents[channel.category]}</span>
+                      <span className="text-lg">{CATEGORY_ICONS[channel.category]}</span>
                       <span className="font-medium text-sm">{channel.name}</span>
                       {selectedChannel?.id === channel.id && (
                         <span className="ml-auto px-2 py-0.5 rounded-full bg-violet-500/30 text-violet-300 text-xs">
@@ -1029,7 +932,7 @@ export default function IPTVPlayer() {
                             }}
                             className="px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-300 text-xs hover:bg-violet-500/30 transition-all flex items-center gap-1"
                           >
-                            {categoryIconComponents[cat]}
+                            {CATEGORY_ICONS[cat]}
                             {cat}
                           </button>
                         ))}
@@ -1061,7 +964,7 @@ export default function IPTVPlayer() {
                         onClick={() => playChannel(channel)}
                         className="glass-card rounded-xl p-3 text-left channel-card"
                       >
-                        <div className="text-2xl mb-2">{categoryIconComponents[channel.category]}</div>
+                        <div className="text-2xl mb-2">{CATEGORY_ICONS[channel.category]}</div>
                         <div className="text-sm font-medium truncate">{channel.name}</div>
                         <div className="text-xs text-white/40">{channel.category}</div>
                       </button>
@@ -1086,7 +989,7 @@ export default function IPTVPlayer() {
                       onClick={() => handleMoodSelection(mood)}
                       className="glass-card rounded-xl p-3 text-center channel-card"
                     >
-                      <div className="flex justify-center mb-1">{moodIcons[mood]}</div>
+                      <div className="flex justify-center mb-1">{MOOD_ICONS[mood]}</div>
                       <div className="text-xs text-white/60">{label}</div>
                     </button>
                   ))}
@@ -1103,7 +1006,7 @@ export default function IPTVPlayer() {
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${categoryColors[lastWatched.category]} flex items-center justify-center text-xl`}>
-                        {categoryIconComponents[lastWatched.category]}
+                        {CATEGORY_ICONS[lastWatched.category]}
                       </div>
                       <div>
                         <div className="font-medium">{lastWatched.name}</div>
@@ -1392,7 +1295,7 @@ export default function IPTVPlayer() {
                   }}
                   className="w-full glass p-3 rounded-xl text-left hover:bg-white/5 transition-all"
                 >
-                  <div className="font-medium text-sm">{categoryIconComponents[cat]} {cat}</div>
+                  <div className="font-medium text-sm">{CATEGORY_ICONS[cat]} {cat}</div>
                   <div className="text-xs text-white/40">{timeRecs.mood}</div>
                 </button>
               ))}
