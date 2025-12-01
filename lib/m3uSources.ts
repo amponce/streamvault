@@ -35,12 +35,84 @@ export const popularM3USources: M3USource[] = [
     category: 'all',
   },
 
-  // === FREE-TV ===
+  // === FREE-TV (uses EPGShare01 guide data) ===
   {
     name: 'Free-TV (All)',
     url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8',
     description: 'Community-maintained free channels worldwide',
     category: 'all',
+  },
+  {
+    name: 'Free-TV: USA',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_usa.m3u8',
+    description: 'Free US channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: Canada',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_canada.m3u8',
+    description: 'Free Canadian channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: UK',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_uk.m3u8',
+    description: 'Free UK channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: Germany',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_germany.m3u8',
+    description: 'Free German channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: France',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_france.m3u8',
+    description: 'Free French channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: Spain',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_spain.m3u8',
+    description: 'Free Spanish channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: Italy',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_italy.m3u8',
+    description: 'Free Italian channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: Japan',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_japan.m3u8',
+    description: 'Free Japanese channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: Korea',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_korea.m3u8',
+    description: 'Free Korean channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: India',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_india.m3u8',
+    description: 'Free Indian channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: Brazil',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_brazil.m3u8',
+    description: 'Free Brazilian channels with EPG guide',
+    category: 'local',
+  },
+  {
+    name: 'Free-TV: Mexico',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_mexico.m3u8',
+    description: 'Free Mexican channels with EPG guide',
+    category: 'local',
   },
 
   // === IPTV-ORG BY CATEGORY ===
