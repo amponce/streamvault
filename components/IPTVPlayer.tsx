@@ -85,6 +85,15 @@ import {
   popularM3USources,
 } from '@/lib/m3uImporter';
 import {
+  smartImport,
+  ImportOptions,
+  ImportResult,
+  ImportProgressCallback,
+  AVAILABLE_COUNTRIES,
+  AVAILABLE_LANGUAGES,
+  convertGitHubUrl,
+} from '@/lib/smartImport';
+import {
   validateChannels,
   ValidationProgress,
   ValidationResult,
@@ -133,6 +142,19 @@ export default function IPTVPlayer() {
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importedChannels, setImportedChannels] = useState<Channel[]>([]);
+  // Smart import state
+  const [importPhase, setImportPhase] = useState<string>('');
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [importStats, setImportStats] = useState<ImportResult['stats'] | null>(null);
+  const [importOptions, setImportOptions] = useState<ImportOptions>({
+    validateStreams: true,
+    excludeNsfw: true,
+    skipDuplicates: true,
+    filterCountry: [],
+    filterLanguage: [],
+  });
+  const [showAdvancedImport, setShowAdvancedImport] = useState(false);
+  const importAbortController = useRef<AbortController | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [validationProgress, setValidationProgress] = useState<ValidationProgress | null>(null);
   const [validationResults, setValidationResults] = useState<Map<string, ValidationResult>>(new Map());
@@ -423,7 +445,82 @@ export default function IPTVPlayer() {
     setShowAIPanel(false);
   }, [playChannel, displayedChannels]);
 
-  const handleImportM3U = useCallback(async (url: string) => {
+  const handleSmartImport = useCallback(async (url: string) => {
+    setImportLoading(true);
+    setImportError(null);
+    setImportStats(null);
+    setImportPhase('');
+    setImportProgress({ current: 0, total: 0 });
+
+    // Create abort controller for cancellation
+    importAbortController.current = new AbortController();
+
+    // Get existing URLs for deduplication
+    const existingUrls = new Set([
+      ...allChannels.map(c => c.url),
+      ...importedChannels.map(c => c.url),
+      ...plutoChannels.map(c => c.url),
+    ]);
+
+    const onProgress: ImportProgressCallback = (progress) => {
+      setImportPhase(progress.phase);
+      setImportProgress({ current: progress.current, total: progress.total });
+    };
+
+    try {
+      const result = await smartImport(
+        url,
+        existingUrls,
+        importOptions,
+        onProgress,
+        importAbortController.current.signal
+      );
+
+      setImportStats(result.stats);
+
+      if (result.errors.length > 0) {
+        setImportError(result.errors.join(', '));
+      }
+
+      if (result.channels.length === 0) {
+        if (!result.errors.length) {
+          setImportError('No valid channels found after filtering');
+        }
+        return;
+      }
+
+      // Save and update state
+      saveImportedChannels(result.channels);
+      setImportedChannels(prev => {
+        const combined = [...prev, ...result.channels];
+        // Dedupe by URL
+        return combined.filter((ch, idx, arr) =>
+          arr.findIndex(c => c.url === ch.url) === idx
+        );
+      });
+
+      // Keep modal open to show stats, user can close it
+      setImportUrl('');
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setImportError('Import cancelled');
+      } else {
+        setImportError(err instanceof Error ? err.message : 'Failed to import playlist');
+      }
+    } finally {
+      setImportLoading(false);
+      importAbortController.current = null;
+    }
+  }, [importOptions, importedChannels, plutoChannels]);
+
+  const handleCancelImport = useCallback(() => {
+    if (importAbortController.current) {
+      importAbortController.current.abort();
+    }
+  }, []);
+
+  // Legacy import for quick imports without validation
+  const handleQuickImport = useCallback(async (url: string) => {
     setImportLoading(true);
     setImportError(null);
 
@@ -437,7 +534,6 @@ export default function IPTVPlayer() {
       saveImportedChannels(channels);
       setImportedChannels(prev => {
         const combined = [...prev, ...channels];
-        // Dedupe by URL
         return combined.filter((ch, idx, arr) =>
           arr.findIndex(c => c.url === ch.url) === idx
         );
@@ -1178,17 +1274,20 @@ export default function IPTVPlayer() {
         )}
       </main>
 
-      {/* Import M3U Modal - Mobile Friendly */}
+      {/* Smart Import M3U Modal - Mobile Friendly */}
       {showImportModal && (
         <div className="fixed inset-0 modal-backdrop flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-          <div className="glass-card rounded-t-2xl md:rounded-2xl p-4 md:p-6 w-full md:max-w-lg fade-in max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Import M3U Playlist</h2>
+          <div className="glass-card rounded-t-2xl md:rounded-2xl p-4 md:p-6 w-full md:max-w-xl fade-in max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Smart Import</h2>
               <button
                 onClick={() => {
                   setShowImportModal(false);
                   setImportError(null);
                   setImportUrl('');
+                  setImportStats(null);
+                  setShowAdvancedImport(false);
+                  handleCancelImport();
                 }}
                 className="text-white/40 hover:text-white transition-colors"
               >
@@ -1198,17 +1297,235 @@ export default function IPTVPlayer() {
               </button>
             </div>
 
+            {/* Import Stats (shown after import) */}
+            {importStats && (
+              <div className="mb-4 p-4 rounded-xl bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20">
+                <div className="text-sm font-medium text-green-400 mb-2">Import Complete!</div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-white/50">Total parsed:</span>
+                    <span className="text-white">{importStats.total}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/50">Added:</span>
+                    <span className="text-green-400">{importStats.valid}</span>
+                  </div>
+                  {importStats.invalid > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Dead streams:</span>
+                      <span className="text-red-400">{importStats.invalid}</span>
+                    </div>
+                  )}
+                  {importStats.duplicates > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Duplicates:</span>
+                      <span className="text-yellow-400">{importStats.duplicates}</span>
+                    </div>
+                  )}
+                  {importStats.nsfwFiltered > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">NSFW filtered:</span>
+                      <span className="text-orange-400">{importStats.nsfwFiltered}</span>
+                    </div>
+                  )}
+                  {importStats.countryFiltered > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Country filtered:</span>
+                      <span className="text-blue-400">{importStats.countryFiltered}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* URL Input */}
             <div className="mb-4">
-              <label className="block text-sm text-white/60 mb-2">Playlist URL</label>
+              <label className="block text-sm text-white/60 mb-2">Playlist URL (supports GitHub links)</label>
               <input
                 type="url"
-                placeholder="https://example.com/playlist.m3u8"
+                placeholder="https://example.com/playlist.m3u8 or GitHub URL"
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
                 className="w-full glass-input px-4 py-3 rounded-xl text-white placeholder:text-white/30"
+                disabled={importLoading}
               />
+              {importUrl && importUrl.includes('github.com') && !importUrl.includes('raw.') && (
+                <div className="mt-1 text-xs text-blue-400">
+                  GitHub URL detected - will convert automatically
+                </div>
+              )}
             </div>
+
+            {/* Advanced Options Toggle */}
+            <button
+              onClick={() => setShowAdvancedImport(!showAdvancedImport)}
+              className="w-full flex items-center justify-between p-3 mb-4 glass rounded-xl text-sm hover:bg-white/5 transition-all"
+              disabled={importLoading}
+            >
+              <span className="text-white/70">Advanced Filters</span>
+              <svg
+                className={`w-5 h-5 text-white/50 transition-transform ${showAdvancedImport ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Advanced Options */}
+            {showAdvancedImport && (
+              <div className="mb-4 p-4 glass rounded-xl space-y-4">
+                {/* Validation Toggle */}
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <div className="text-sm font-medium">Validate Streams</div>
+                    <div className="text-xs text-white/40">Test each stream before adding (slower but cleaner)</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={importOptions.validateStreams}
+                    onChange={(e) => setImportOptions(prev => ({ ...prev, validateStreams: e.target.checked }))}
+                    className="w-5 h-5 rounded accent-violet-500"
+                    disabled={importLoading}
+                  />
+                </label>
+
+                {/* NSFW Filter */}
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <div className="text-sm font-medium">Filter Adult Content</div>
+                    <div className="text-xs text-white/40">Automatically exclude NSFW channels</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={importOptions.excludeNsfw}
+                    onChange={(e) => setImportOptions(prev => ({ ...prev, excludeNsfw: e.target.checked }))}
+                    className="w-5 h-5 rounded accent-violet-500"
+                    disabled={importLoading}
+                  />
+                </label>
+
+                {/* Skip Duplicates */}
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <div className="text-sm font-medium">Skip Duplicates</div>
+                    <div className="text-xs text-white/40">Don&apos;t import channels you already have</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={importOptions.skipDuplicates}
+                    onChange={(e) => setImportOptions(prev => ({ ...prev, skipDuplicates: e.target.checked }))}
+                    className="w-5 h-5 rounded accent-violet-500"
+                    disabled={importLoading}
+                  />
+                </label>
+
+                {/* Country Filter */}
+                <div>
+                  <div className="text-sm font-medium mb-2">Filter by Country</div>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_COUNTRIES.slice(0, 10).map((country) => (
+                      <button
+                        key={country.code}
+                        onClick={() => {
+                          setImportOptions(prev => ({
+                            ...prev,
+                            filterCountry: prev.filterCountry?.includes(country.code)
+                              ? prev.filterCountry.filter(c => c !== country.code)
+                              : [...(prev.filterCountry || []), country.code]
+                          }));
+                        }}
+                        disabled={importLoading}
+                        className={`px-2 py-1 text-xs rounded-lg transition-all ${
+                          importOptions.filterCountry?.includes(country.code)
+                            ? 'bg-violet-500/30 border border-violet-500/50 text-violet-300'
+                            : 'glass hover:bg-white/10 text-white/60'
+                        }`}
+                      >
+                        {country.code}
+                      </button>
+                    ))}
+                  </div>
+                  {(importOptions.filterCountry?.length || 0) > 0 && (
+                    <div className="mt-2 text-xs text-violet-400">
+                      Filtering: {importOptions.filterCountry?.join(', ')}
+                      <button
+                        onClick={() => setImportOptions(prev => ({ ...prev, filterCountry: [] }))}
+                        className="ml-2 text-white/40 hover:text-white"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Language Filter */}
+                <div>
+                  <div className="text-sm font-medium mb-2">Filter by Language</div>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_LANGUAGES.slice(0, 8).map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => {
+                          setImportOptions(prev => ({
+                            ...prev,
+                            filterLanguage: prev.filterLanguage?.includes(lang.code)
+                              ? prev.filterLanguage.filter(l => l !== lang.code)
+                              : [...(prev.filterLanguage || []), lang.code]
+                          }));
+                        }}
+                        disabled={importLoading}
+                        className={`px-2 py-1 text-xs rounded-lg transition-all ${
+                          importOptions.filterLanguage?.includes(lang.code)
+                            ? 'bg-blue-500/30 border border-blue-500/50 text-blue-300'
+                            : 'glass hover:bg-white/10 text-white/60'
+                        }`}
+                      >
+                        {lang.name}
+                      </button>
+                    ))}
+                  </div>
+                  {(importOptions.filterLanguage?.length || 0) > 0 && (
+                    <div className="mt-2 text-xs text-blue-400">
+                      Languages: {importOptions.filterLanguage?.map(l =>
+                        AVAILABLE_LANGUAGES.find(lang => lang.code === l)?.name || l
+                      ).join(', ')}
+                      <button
+                        onClick={() => setImportOptions(prev => ({ ...prev, filterLanguage: [] }))}
+                        className="ml-2 text-white/40 hover:text-white"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Progress Indicator */}
+            {importLoading && (
+              <div className="mb-4 p-4 glass rounded-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-white/70 capitalize">{importPhase || 'Starting'}...</span>
+                  {importProgress.total > 0 && (
+                    <span className="text-xs text-white/50">
+                      {importProgress.current}/{importProgress.total}
+                    </span>
+                  )}
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-300"
+                    style={{
+                      width: importProgress.total > 0
+                        ? `${(importProgress.current / importProgress.total) * 100}%`
+                        : '0%'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {importError && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
@@ -1216,38 +1533,58 @@ export default function IPTVPlayer() {
               </div>
             )}
 
-            <button
-              onClick={() => handleImportM3U(importUrl)}
-              disabled={!importUrl || importLoading}
-              className="w-full glass-button py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-            >
+            {/* Action Buttons */}
+            <div className="flex gap-2 mb-4">
               {importLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Importing...
-                </span>
+                <button
+                  onClick={handleCancelImport}
+                  className="flex-1 glass py-3 rounded-xl font-medium text-red-400 hover:bg-red-500/10 transition-all"
+                >
+                  Cancel
+                </button>
               ) : (
-                'Import Playlist'
+                <>
+                  <button
+                    onClick={() => handleSmartImport(importUrl)}
+                    disabled={!importUrl}
+                    className="flex-1 glass-button py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Smart Import
+                  </button>
+                  <button
+                    onClick={() => handleQuickImport(importUrl)}
+                    disabled={!importUrl}
+                    className="glass py-3 px-4 rounded-xl text-sm text-white/60 hover:bg-white/10 disabled:opacity-50"
+                    title="Quick import without validation"
+                  >
+                    Quick
+                  </button>
+                </>
               )}
-            </button>
+            </div>
 
             {/* Popular Sources */}
-            <div>
-              <div className="text-xs text-white/40 uppercase tracking-wider mb-3">Popular Sources</div>
-              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                {popularM3USources.map((source) => (
-                  <button
-                    key={source.url}
-                    onClick={() => handleImportM3U(source.url)}
-                    disabled={importLoading}
-                    className="w-full glass p-3 rounded-xl text-left hover:bg-white/5 transition-all disabled:opacity-50"
-                  >
-                    <div className="font-medium text-sm">{source.name}</div>
-                    <div className="text-xs text-white/40">{source.description}</div>
-                  </button>
-                ))}
+            {!importLoading && (
+              <div>
+                <div className="text-xs text-white/40 uppercase tracking-wider mb-3">Popular Sources</div>
+                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                  {popularM3USources.slice(0, 15).map((source) => (
+                    <button
+                      key={source.url}
+                      onClick={() => {
+                        setImportUrl(source.url);
+                        handleSmartImport(source.url);
+                      }}
+                      disabled={importLoading}
+                      className="w-full glass p-3 rounded-xl text-left hover:bg-white/5 transition-all disabled:opacity-50"
+                    >
+                      <div className="font-medium text-sm">{source.name}</div>
+                      <div className="text-xs text-white/40">{source.description}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
