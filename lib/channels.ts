@@ -7,6 +7,7 @@ export interface Channel {
 }
 
 export const categories = [
+  'Favorites',
   'All',
   'Local',
   'News',
