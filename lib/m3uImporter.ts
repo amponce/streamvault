@@ -210,6 +210,14 @@ export function loadImportedUrls(): string[] {
  * Sources from iptv-org and Free-TV GitHub repositories
  */
 export const popularM3USources = [
+  // === PLUTO TV (RECOMMENDED) ===
+  {
+    name: 'Pluto TV (US)',
+    url: 'https://raw.githubusercontent.com/iptv-org/iptv/refs/heads/master/streams/us_pluto.m3u',
+    description: 'Free streaming TV - Movies, News, Sports & more',
+    category: 'all',
+  },
+
   // === FREE-TV ===
   {
     name: 'Free-TV (All)',
