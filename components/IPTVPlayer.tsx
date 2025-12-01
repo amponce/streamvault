@@ -103,6 +103,11 @@ import {
   stopValidation,
 } from '@/lib/streamValidator';
 import { fetchPlutoChannels, plutoToAppChannel, clearPlutoCache } from '@/lib/plutoTV';
+import {
+  importFromIptvOrg,
+  IptvOrgImportOptions,
+  IMPORT_PRESETS,
+} from '@/lib/iptvOrgApi';
 
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), {
   ssr: false,
@@ -153,6 +158,12 @@ export default function IPTVPlayer() {
     filterLanguage: [],
   });
   const [showAdvancedImport, setShowAdvancedImport] = useState(false);
+  const [importSource, setImportSource] = useState<'url' | 'iptv-org'>('url');
+  const [iptvOrgOptions, setIptvOrgOptions] = useState<IptvOrgImportOptions>({
+    countries: ['US'],
+    excludePluto: true,
+    maxChannels: 100,
+  });
   const importAbortController = useRef<AbortController | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [validationProgress, setValidationProgress] = useState<ValidationProgress | null>(null);
@@ -552,6 +563,67 @@ export default function IPTVPlayer() {
       setImportLoading(false);
     }
   }, []);
+
+  // Import from IPTV-org API
+  const handleIptvOrgImport = useCallback(async () => {
+    setImportLoading(true);
+    setImportError(null);
+    setImportStats(null);
+    setImportPhase('');
+    setImportProgress({ current: 0, total: 0 });
+
+    importAbortController.current = new AbortController();
+
+    const existingUrls = new Set([
+      ...allChannels.map(c => c.url),
+      ...importedChannels.map(c => c.url),
+      ...plutoChannels.map(c => c.url),
+    ]);
+
+    try {
+      const result = await importFromIptvOrg(
+        existingUrls,
+        iptvOrgOptions,
+        (progress) => {
+          setImportPhase(progress.phase);
+          setImportProgress({ current: progress.current, total: progress.total });
+        },
+        importAbortController.current.signal
+      );
+
+      setImportStats({
+        total: result.stats.totalStreams,
+        validated: result.stats.matchedChannels,
+        valid: result.stats.imported,
+        invalid: result.stats.matchedChannels - result.stats.afterFilters,
+        duplicates: 0,
+        countryFiltered: result.stats.matchedChannels - result.stats.afterFilters,
+        languageFiltered: 0,
+      });
+
+      if (result.channels.length === 0) {
+        setImportError('No channels found matching filters');
+        return;
+      }
+
+      saveImportedChannels(result.channels);
+      setImportedChannels(prev => {
+        const combined = [...prev, ...result.channels];
+        return combined.filter((ch, idx, arr) =>
+          arr.findIndex(c => c.url === ch.url) === idx
+        );
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setImportError('Import cancelled');
+      } else {
+        setImportError(err instanceof Error ? err.message : 'Failed to import from IPTV-org');
+      }
+    } finally {
+      setImportLoading(false);
+      importAbortController.current = null;
+    }
+  }, [iptvOrgOptions, importedChannels, plutoChannels]);
 
   const handleClearImported = useCallback(() => {
     clearImportedChannels();
@@ -1337,43 +1409,199 @@ export default function IPTVPlayer() {
               </div>
             )}
 
-            {/* URL Input */}
-            <div className="mb-4">
-              <label className="block text-sm text-white/60 mb-2">Playlist URL (supports GitHub links)</label>
-              <input
-                type="url"
-                placeholder="https://example.com/playlist.m3u8 or GitHub URL"
-                value={importUrl}
-                onChange={(e) => setImportUrl(e.target.value)}
-                className="w-full glass-input px-4 py-3 rounded-xl text-white placeholder:text-white/30"
+            {/* Source Selector */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setImportSource('url')}
                 disabled={importLoading}
-              />
-              {importUrl && importUrl.includes('github.com') && !importUrl.includes('raw.') && (
-                <div className="mt-1 text-xs text-blue-400">
-                  GitHub URL detected - will convert automatically
-                </div>
-              )}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+                  importSource === 'url'
+                    ? 'bg-violet-500/30 border border-violet-500/50 text-violet-300'
+                    : 'glass hover:bg-white/10 text-white/60'
+                }`}
+              >
+                Custom URL
+              </button>
+              <button
+                onClick={() => setImportSource('iptv-org')}
+                disabled={importLoading}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+                  importSource === 'iptv-org'
+                    ? 'bg-green-500/30 border border-green-500/50 text-green-300'
+                    : 'glass hover:bg-white/10 text-white/60'
+                }`}
+              >
+                IPTV-org Database
+              </button>
             </div>
 
-            {/* Advanced Options Toggle */}
-            <button
-              onClick={() => setShowAdvancedImport(!showAdvancedImport)}
-              className="w-full flex items-center justify-between p-3 mb-4 glass rounded-xl text-sm hover:bg-white/5 transition-all"
-              disabled={importLoading}
-            >
-              <span className="text-white/70">Advanced Filters</span>
-              <svg
-                className={`w-5 h-5 text-white/50 transition-transform ${showAdvancedImport ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+            {/* Custom URL Input */}
+            {importSource === 'url' && (
+              <div className="mb-4">
+                <label className="block text-sm text-white/60 mb-2">Playlist URL (supports GitHub links)</label>
+                <input
+                  type="url"
+                  placeholder="https://example.com/playlist.m3u8 or GitHub URL"
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  className="w-full glass-input px-4 py-3 rounded-xl text-white placeholder:text-white/30"
+                  disabled={importLoading}
+                />
+                {importUrl && importUrl.includes('github.com') && !importUrl.includes('raw.') && (
+                  <div className="mt-1 text-xs text-blue-400">
+                    GitHub URL detected - will convert automatically
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Advanced Options */}
-            {showAdvancedImport && (
+            {/* IPTV-org Options */}
+            {importSource === 'iptv-org' && (
+              <div className="mb-4 p-4 glass rounded-xl space-y-4">
+                <div className="text-xs text-green-400 mb-2">
+                  Import from the community-maintained IPTV-org database with {'>'}9000 streams worldwide
+                </div>
+
+                {/* Quick Presets */}
+                <div>
+                  <div className="text-sm font-medium mb-2">Quick Presets</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setIptvOrgOptions({ ...IMPORT_PRESETS.usNews, excludePluto: true })}
+                      disabled={importLoading}
+                      className="px-3 py-1.5 text-xs glass rounded-lg hover:bg-white/10 text-white/70"
+                    >
+                      US News
+                    </button>
+                    <button
+                      onClick={() => setIptvOrgOptions({ ...IMPORT_PRESETS.usSports, excludePluto: true })}
+                      disabled={importLoading}
+                      className="px-3 py-1.5 text-xs glass rounded-lg hover:bg-white/10 text-white/70"
+                    >
+                      US Sports
+                    </button>
+                    <button
+                      onClick={() => setIptvOrgOptions({ ...IMPORT_PRESETS.ukChannels, excludePluto: true })}
+                      disabled={importLoading}
+                      className="px-3 py-1.5 text-xs glass rounded-lg hover:bg-white/10 text-white/70"
+                    >
+                      UK Channels
+                    </button>
+                    <button
+                      onClick={() => setIptvOrgOptions({ ...IMPORT_PRESETS.hdOnly, excludePluto: true })}
+                      disabled={importLoading}
+                      className="px-3 py-1.5 text-xs glass rounded-lg hover:bg-white/10 text-white/70"
+                    >
+                      HD Only
+                    </button>
+                  </div>
+                </div>
+
+                {/* Country Filter */}
+                <div>
+                  <div className="text-sm font-medium mb-2">Countries</div>
+                  <div className="flex flex-wrap gap-2">
+                    {['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'ES', 'IT', 'MX', 'BR'].map((code) => (
+                      <button
+                        key={code}
+                        onClick={() => {
+                          setIptvOrgOptions(prev => ({
+                            ...prev,
+                            countries: prev.countries?.includes(code)
+                              ? prev.countries.filter(c => c !== code)
+                              : [...(prev.countries || []), code]
+                          }));
+                        }}
+                        disabled={importLoading}
+                        className={`px-2 py-1 text-xs rounded-lg transition-all ${
+                          iptvOrgOptions.countries?.includes(code)
+                            ? 'bg-green-500/30 border border-green-500/50 text-green-300'
+                            : 'glass hover:bg-white/10 text-white/60'
+                        }`}
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                  {(iptvOrgOptions.countries?.length || 0) > 0 && (
+                    <div className="mt-2 text-xs text-green-400">
+                      Selected: {iptvOrgOptions.countries?.join(', ')}
+                      <button
+                        onClick={() => setIptvOrgOptions(prev => ({ ...prev, countries: [] }))}
+                        className="ml-2 text-white/40 hover:text-white"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Category Filter */}
+                <div>
+                  <div className="text-sm font-medium mb-2">Categories</div>
+                  <div className="flex flex-wrap gap-2">
+                    {['news', 'sports', 'entertainment', 'movies', 'music', 'kids', 'documentary'].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setIptvOrgOptions(prev => ({
+                            ...prev,
+                            categories: prev.categories?.includes(cat)
+                              ? prev.categories.filter(c => c !== cat)
+                              : [...(prev.categories || []), cat]
+                          }));
+                        }}
+                        disabled={importLoading}
+                        className={`px-2 py-1 text-xs rounded-lg transition-all capitalize ${
+                          iptvOrgOptions.categories?.includes(cat)
+                            ? 'bg-blue-500/30 border border-blue-500/50 text-blue-300'
+                            : 'glass hover:bg-white/10 text-white/60'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Max Channels */}
+                <div>
+                  <div className="text-sm font-medium mb-2">Max Channels: {iptvOrgOptions.maxChannels || 'Unlimited'}</div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="500"
+                    step="10"
+                    value={iptvOrgOptions.maxChannels || 100}
+                    onChange={(e) => setIptvOrgOptions(prev => ({ ...prev, maxChannels: parseInt(e.target.value) }))}
+                    disabled={importLoading}
+                    className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-green-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Advanced Options Toggle (only for URL import) */}
+            {importSource === 'url' && (
+              <>
+                <button
+                  onClick={() => setShowAdvancedImport(!showAdvancedImport)}
+                  className="w-full flex items-center justify-between p-3 mb-4 glass rounded-xl text-sm hover:bg-white/5 transition-all"
+                  disabled={importLoading}
+                >
+                  <span className="text-white/70">Advanced Filters</span>
+                  <svg
+                    className={`w-5 h-5 text-white/50 transition-transform ${showAdvancedImport ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Advanced Options */}
+                {showAdvancedImport && (
               <div className="mb-4 p-4 glass rounded-xl space-y-4">
                 {/* Validation Toggle */}
                 <label className="flex items-center justify-between cursor-pointer">
@@ -1486,6 +1714,8 @@ export default function IPTVPlayer() {
                 </div>
               </div>
             )}
+              </>
+            )}
 
             {/* Progress Indicator */}
             {importLoading && (
@@ -1526,7 +1756,7 @@ export default function IPTVPlayer() {
                 >
                   Cancel
                 </button>
-              ) : (
+              ) : importSource === 'url' ? (
                 <>
                   <button
                     onClick={() => handleSmartImport(importUrl)}
@@ -1544,11 +1774,18 @@ export default function IPTVPlayer() {
                     Quick
                   </button>
                 </>
+              ) : (
+                <button
+                  onClick={handleIptvOrgImport}
+                  className="flex-1 py-3 rounded-xl font-medium bg-green-500/30 border border-green-500/50 text-green-300 hover:bg-green-500/40 transition-all"
+                >
+                  Import from IPTV-org
+                </button>
               )}
             </div>
 
-            {/* Popular Sources */}
-            {!importLoading && (
+            {/* Popular Sources (only for URL import) */}
+            {!importLoading && importSource === 'url' && (
               <div>
                 <div className="text-xs text-white/40 uppercase tracking-wider mb-3">Popular Sources</div>
                 <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
