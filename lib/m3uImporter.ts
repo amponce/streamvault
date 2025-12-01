@@ -233,6 +233,14 @@ export const popularM3USources = [
     category: 'all',
   },
 
+  // === PLEX TV ===
+  {
+    name: 'Plex TV (US)',
+    url: 'https://raw.githubusercontent.com/iptv-org/iptv/refs/heads/master/streams/us_plex.m3u',
+    description: 'Free Plex streaming channels - Movies, Lifestyle & more',
+    category: 'all',
+  },
+
   // === COMMUNITY CURATED ===
   {
     name: 'USA Channels (Curated)',
