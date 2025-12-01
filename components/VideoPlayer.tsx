@@ -313,7 +313,12 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
 
       {/* Error State */}
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="text-center max-w-md px-6">
             <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/10 flex items-center justify-center">
               <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -346,7 +351,19 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
               </p>
             )}
 
-            <div className="flex gap-3 justify-center">
+            {/* Navigation and action buttons */}
+            <div className="flex gap-3 justify-center items-center">
+              {/* Previous Channel */}
+              <button
+                onClick={onSwipeRight}
+                className="w-12 h-12 glass rounded-xl flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all"
+                title="Previous Channel"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
               <button
                 onClick={retryStream}
                 className="glass-button px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2"
@@ -356,13 +373,20 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
                 </svg>
                 Retry
               </button>
+
+              {/* Next Channel */}
               <button
-                onClick={() => onStreamError?.(channel.id)}
-                className="glass px-5 py-2.5 rounded-xl text-sm font-medium text-white/60 hover:text-white transition-colors"
+                onClick={onSwipeLeft}
+                className="w-12 h-12 glass rounded-xl flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all"
+                title="Next Channel"
               >
-                Skip Channel
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
+
+            <p className="text-white/30 text-xs mt-4">Swipe left/right to change channels</p>
           </div>
         </div>
       )}
