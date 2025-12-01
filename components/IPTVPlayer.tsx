@@ -419,8 +419,9 @@ export default function IPTVPlayer() {
   }, []);
 
   const handleAIRecommendation = useCallback(() => {
-    // Only pick from core channels (not imported or Pluto), excluding dead links
+    // Only pick from core 123 channels (1-123), excluding dead links
     const coreChannels = originalChannels.filter(ch => {
+      if (ch.number > 123) return false; // Only channels 1-123
       const result = validationResults.get(ch.id);
       return !result || result.isValid;
     });
