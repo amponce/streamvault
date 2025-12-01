@@ -49,6 +49,26 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
     }, 3000);
   }, [isPlaying]);
 
+  // Check if URL needs to go through our CORS proxy
+  const getStreamUrl = useCallback((url: string): string => {
+    // URLs that work directly (have CORS headers or same-origin)
+    const directPatterns = [
+      'moveonjoy.com',      // Our core channels
+      'rbmn-live.akamaized', // Red Bull
+      'samsung.wurl.com',   // Samsung FAST
+      'plex.wurl.com',      // Plex FAST
+    ];
+
+    // Check if URL can be loaded directly
+    const canLoadDirectly = directPatterns.some(pattern => url.includes(pattern));
+    if (canLoadDirectly) {
+      return url;
+    }
+
+    // Route through our proxy for CORS-blocked streams
+    return `/api/stream?url=${encodeURIComponent(url)}`;
+  }, []);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -62,6 +82,9 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
+
+    // Get the appropriate stream URL (direct or proxied)
+    const streamUrl = getStreamUrl(channel.url);
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -77,7 +100,7 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
       });
 
       hlsRef.current = hls;
-      hls.loadSource(channel.url);
+      hls.loadSource(streamUrl);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -110,7 +133,7 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
       };
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS support (Safari)
-      video.src = channel.url;
+      video.src = streamUrl;
       video.addEventListener('loadedmetadata', () => {
         setLoading(false);
         video.play().catch(() => {});
@@ -124,7 +147,7 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
       setError('HLS not supported in this browser');
       setLoading(false);
     }
-  }, [channel, onStreamError]);
+  }, [channel, onStreamError, getStreamUrl]);
 
   // Track play state
   useEffect(() => {
@@ -237,9 +260,10 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
     setError(null);
     setLoading(true);
     if (hlsRef.current) {
-      hlsRef.current.loadSource(channel.url);
+      const streamUrl = getStreamUrl(channel.url);
+      hlsRef.current.loadSource(streamUrl);
     }
-  }, [channel.url]);
+  }, [channel.url, getStreamUrl]);
 
   // Swipe gesture handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
