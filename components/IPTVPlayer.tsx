@@ -148,7 +148,6 @@ export default function IPTVPlayer() {
   const [importStats, setImportStats] = useState<ImportResult['stats'] | null>(null);
   const [importOptions, setImportOptions] = useState<ImportOptions>({
     validateStreams: true,
-    excludeNsfw: true,
     skipDuplicates: true,
     filterCountry: [],
     filterLanguage: [],
@@ -1322,12 +1321,6 @@ export default function IPTVPlayer() {
                       <span className="text-yellow-400">{importStats.duplicates}</span>
                     </div>
                   )}
-                  {importStats.nsfwFiltered > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-white/50">NSFW filtered:</span>
-                      <span className="text-orange-400">{importStats.nsfwFiltered}</span>
-                    </div>
-                  )}
                   {importStats.countryFiltered > 0 && (
                     <div className="flex justify-between">
                       <span className="text-white/50">Country filtered:</span>
@@ -1386,21 +1379,6 @@ export default function IPTVPlayer() {
                     type="checkbox"
                     checked={importOptions.validateStreams}
                     onChange={(e) => setImportOptions(prev => ({ ...prev, validateStreams: e.target.checked }))}
-                    className="w-5 h-5 rounded accent-violet-500"
-                    disabled={importLoading}
-                  />
-                </label>
-
-                {/* NSFW Filter */}
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <div className="text-sm font-medium">Filter Adult Content</div>
-                    <div className="text-xs text-white/40">Automatically exclude NSFW channels</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={importOptions.excludeNsfw}
-                    onChange={(e) => setImportOptions(prev => ({ ...prev, excludeNsfw: e.target.checked }))}
                     className="w-5 h-5 rounded accent-violet-500"
                     disabled={importLoading}
                   />
