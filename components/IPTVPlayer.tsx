@@ -37,10 +37,13 @@ import {
   Send,
   Loader2,
   Sparkles,
+  Heart,
+  Settings,
 } from 'lucide-react';
 
 // Category icon components using Lucide
 const categoryIconComponents: Record<string, React.ReactNode> = {
+  Favorites: <Heart size={16} />,
   All: <Tv size={16} />,
   Local: <Home size={16} />,
   News: <Newspaper size={16} />,
@@ -108,6 +111,8 @@ import {
   IptvOrgImportOptions,
   IMPORT_PRESETS,
 } from '@/lib/iptvOrgApi';
+import { useFavorites } from '@/hooks/useFavorites';
+import { FavoritesManager } from './FavoritesManager';
 
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), {
   ssr: false,
@@ -180,6 +185,18 @@ export default function IPTVPlayer() {
   } | null>(null);
   const watchStartTime = useRef<number>(0);
   const overlayTimer = useRef<NodeJS.Timeout | null>(null);
+  const [showFavoritesManager, setShowFavoritesManager] = useState(false);
+
+  // Favorites hook
+  const {
+    favorites,
+    favoriteIds,
+    isFavorite,
+    toggle: toggleFavorite,
+    exportToFile: exportFavorites,
+    importFromFile: importFavoritesFromFile,
+    clear: clearAllFavorites,
+  } = useFavorites();
 
   // Detect mobile on mount and resize
   useEffect(() => {
@@ -297,7 +314,10 @@ export default function IPTVPlayer() {
       filtered = filtered.filter(ch => tvCategories.has(ch.category));
     }
 
-    if (selectedCategory !== 'All') {
+    // Handle Favorites category
+    if (selectedCategory === 'Favorites') {
+      filtered = filtered.filter(ch => favoriteIds.has(ch.id));
+    } else if (selectedCategory !== 'All') {
       filtered = filtered.filter(ch => ch.category === selectedCategory);
     }
 
@@ -310,7 +330,7 @@ export default function IPTVPlayer() {
     }
 
     setDisplayedChannels(filtered);
-  }, [selectedCategory, searchQuery, brokenChannels, importedChannels, plutoChannels, validationResults, hideInvalidChannels, contentFilter]);
+  }, [selectedCategory, searchQuery, brokenChannels, importedChannels, plutoChannels, validationResults, hideInvalidChannels, contentFilter, favoriteIds]);
 
   // Update current program and progress
   useEffect(() => {
@@ -799,7 +819,7 @@ export default function IPTVPlayer() {
             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
               {categories
                 .filter(cat => {
-                  if (cat === 'All') return true;
+                  if (cat === 'Favorites' || cat === 'All') return true;
                   if (contentFilter === 'movies') return movieCategories.has(cat);
                   if (contentFilter === 'tv') return tvCategories.has(cat);
                   return true;
@@ -816,8 +836,21 @@ export default function IPTVPlayer() {
                 >
                   <span>{categoryIconComponents[cat]}</span>
                   <span>{cat}</span>
+                  {cat === 'Favorites' && favoriteIds.size > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 text-[10px] bg-red-500/80 rounded-full">
+                      {favoriteIds.size}
+                    </span>
+                  )}
                 </button>
               ))}
+              {/* Favorites Manager Button */}
+              <button
+                onClick={() => setShowFavoritesManager(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all category-pill text-white/60 hover:text-white"
+                title="Manage Favorites"
+              >
+                <Settings size={14} />
+              </button>
             </div>
           </div>
         )}
@@ -870,6 +903,23 @@ export default function IPTVPlayer() {
                           <span className="w-1.5 h-1.5 rounded-full status-live" />
                         </div>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(channel);
+                        }}
+                        className={`p-2 rounded-lg transition-all ${
+                          isFavorite(channel.id)
+                            ? 'text-red-500 hover:text-red-400'
+                            : 'text-white/30 hover:text-white/60'
+                        }`}
+                        title={isFavorite(channel.id) ? 'Remove from favorites' : 'Add to favorites'}
+                      >
+                        <Heart
+                          size={18}
+                          fill={isFavorite(channel.id) ? 'currentColor' : 'none'}
+                        />
+                      </button>
                       {selectedChannel?.id === channel.id && (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 text-xs">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 pulse-live" />
@@ -1880,6 +1930,17 @@ export default function IPTVPlayer() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Favorites Manager Modal */}
+      {showFavoritesManager && (
+        <FavoritesManager
+          favoritesCount={favorites.length}
+          onExport={exportFavorites}
+          onImport={importFavoritesFromFile}
+          onClear={clearAllFavorites}
+          onClose={() => setShowFavoritesManager(false)}
+        />
       )}
     </div>
   );
