@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { allChannels, categories, Category, Channel } from '@/lib/channels';
 import { loadBrokenChannels, saveBrokenChannel, clearBrokenChannels } from '@/lib/channelHealth';
@@ -339,19 +339,36 @@ export default function IPTVPlayer() {
     }
   }, [selectedChannel, isMobile]);
 
+  // Get all available channels sorted by number for sequential navigation
+  const allAvailableChannels = useMemo(() => {
+    return [...allChannels, ...importedChannels, ...plutoChannels]
+      .filter(ch => !brokenChannels.has(ch.id))
+      .sort((a, b) => a.number - b.number);
+  }, [importedChannels, plutoChannels, brokenChannels]);
+
   const nextChannel = useCallback(() => {
-    if (!selectedChannel || displayedChannels.length === 0) return;
-    const currentIndex = displayedChannels.findIndex(ch => ch.id === selectedChannel.id);
-    const nextIndex = (currentIndex + 1) % displayedChannels.length;
-    playChannel(displayedChannels[nextIndex]);
-  }, [selectedChannel, displayedChannels, playChannel]);
+    if (!selectedChannel || allAvailableChannels.length === 0) return;
+    const currentIndex = allAvailableChannels.findIndex(ch => ch.id === selectedChannel.id);
+    if (currentIndex === -1) {
+      // Current channel not in list, go to first channel
+      playChannel(allAvailableChannels[0]);
+    } else {
+      const nextIndex = (currentIndex + 1) % allAvailableChannels.length;
+      playChannel(allAvailableChannels[nextIndex]);
+    }
+  }, [selectedChannel, allAvailableChannels, playChannel]);
 
   const prevChannel = useCallback(() => {
-    if (!selectedChannel || displayedChannels.length === 0) return;
-    const currentIndex = displayedChannels.findIndex(ch => ch.id === selectedChannel.id);
-    const prevIndex = currentIndex === 0 ? displayedChannels.length - 1 : currentIndex - 1;
-    playChannel(displayedChannels[prevIndex]);
-  }, [selectedChannel, displayedChannels, playChannel]);
+    if (!selectedChannel || allAvailableChannels.length === 0) return;
+    const currentIndex = allAvailableChannels.findIndex(ch => ch.id === selectedChannel.id);
+    if (currentIndex === -1) {
+      // Current channel not in list, go to last channel
+      playChannel(allAvailableChannels[allAvailableChannels.length - 1]);
+    } else {
+      const prevIndex = currentIndex === 0 ? allAvailableChannels.length - 1 : currentIndex - 1;
+      playChannel(allAvailableChannels[prevIndex]);
+    }
+  }, [selectedChannel, allAvailableChannels, playChannel]);
 
   // Handle user-reported dead links
   const handleReportDead = useCallback((channel: Channel, error: string) => {
