@@ -19,8 +19,6 @@ export interface ExtendedM3UEntry {
   tvgCountry?: string;
   tvgLanguage?: string;
   groupTitle?: string;
-  isNsfw: boolean;
-  contentRating?: string;
 }
 
 // Import options for filtering
@@ -28,7 +26,6 @@ export interface ImportOptions {
   validateStreams: boolean;
   filterCountry?: string[];  // ISO country codes to include
   filterLanguage?: string[]; // Language codes to include
-  excludeNsfw: boolean;
   skipDuplicates: boolean;
   maxChannels?: number;
 }
@@ -42,7 +39,6 @@ export interface ImportResult {
     valid: number;
     invalid: number;
     duplicates: number;
-    nsfwFiltered: number;
     countryFiltered: number;
     languageFiltered: number;
   };
@@ -64,11 +60,6 @@ export type ImportProgressCallback = (progress: {
   total: number;
   message: string;
 }) => void;
-
-// Adult content detection - uses category metadata and minimal keywords
-// Most M3U playlists tag adult content with these category names
-const ADULT_CATEGORIES = ['adult', 'xxx', '18+', 'mature'];
-const ADULT_MARKERS = ['xxx', '18+', 'adult only'];
 
 // Country name to ISO code mapping
 const COUNTRY_CODES: Record<string, string> = {
@@ -124,22 +115,6 @@ export function convertGitHubUrl(url: string): string {
   return url;
 }
 
-/**
- * Detect if content is adult-only based on category metadata
- * Relies on M3U playlists properly categorizing their content
- */
-export function detectNsfw(entry: Partial<ExtendedM3UEntry>): boolean {
-  const category = (entry.groupTitle || '').toLowerCase();
-  const name = (entry.name || '').toLowerCase();
-
-  // Check if category is explicitly adult
-  const isAdultCategory = ADULT_CATEGORIES.some(cat => category.includes(cat));
-
-  // Check for explicit markers in channel name
-  const hasAdultMarker = ADULT_MARKERS.some(marker => name.includes(marker));
-
-  return isAdultCategory || hasAdultMarker;
-}
 
 /**
  * Normalize country code from various formats
@@ -194,11 +169,7 @@ export function parseM3UExtended(content: string): ExtendedM3UEntry[] {
         tvgLanguage: tvgLanguageMatch?.[1],
         groupTitle: groupTitleMatch?.[1],
         name: nameMatch?.[1]?.trim() || 'Unknown Channel',
-        isNsfw: false,
       };
-
-      // Detect NSFW
-      currentEntry.isNsfw = detectNsfw(currentEntry);
     }
     // URL line (not a comment)
     else if (!line.startsWith('#') && (line.startsWith('http') || line.startsWith('//'))) {
@@ -212,7 +183,6 @@ export function parseM3UExtended(content: string): ExtendedM3UEntry[] {
           tvgCountry: currentEntry.tvgCountry,
           tvgLanguage: currentEntry.tvgLanguage,
           groupTitle: currentEntry.groupTitle,
-          isNsfw: currentEntry.isNsfw || false,
         });
       }
       currentEntry = {};
@@ -405,7 +375,6 @@ export async function smartImport(
     valid: 0,
     invalid: 0,
     duplicates: 0,
-    nsfwFiltered: 0,
     countryFiltered: 0,
     languageFiltered: 0,
   };
@@ -445,13 +414,6 @@ export async function smartImport(
   onProgress?.({ phase: 'filtering', current: 0, total: entries.length, message: 'Applying filters...' });
 
   let filteredEntries = entries;
-
-  // Filter NSFW
-  if (options.excludeNsfw) {
-    const beforeNsfw = filteredEntries.length;
-    filteredEntries = filteredEntries.filter(e => !e.isNsfw);
-    stats.nsfwFiltered = beforeNsfw - filteredEntries.length;
-  }
 
   // Filter by country
   if (options.filterCountry && options.filterCountry.length > 0) {
