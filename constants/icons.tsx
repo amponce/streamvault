@@ -23,6 +23,7 @@ import {
   Radio,
   MonitorPlay,
   Heart,
+  Download,
 } from 'lucide-react';
 import { Mood } from '@/lib/aiFeatures';
 
@@ -30,6 +31,7 @@ import { Mood } from '@/lib/aiFeatures';
 export const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   Favorites: <Heart size={16} />,
   All: <Tv size={16} />,
+  Imported: <Download size={16} />,
   Local: <Home size={16} />,
   News: <Newspaper size={16} />,
   Sports: <Trophy size={16} />,
