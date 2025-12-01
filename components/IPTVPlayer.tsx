@@ -23,6 +23,7 @@ import {
 } from '@/constants/icons';
 import { ChannelCard } from './ChannelCard';
 import { ChannelSearch } from './ChannelSearch';
+import { YouTubeManager } from './YouTubeManager';
 import {
   getCurrentProgram,
   getUpcomingPrograms,
@@ -114,7 +115,7 @@ export default function IPTVPlayer() {
     filterLanguage: [],
   });
   const [showAdvancedImport, setShowAdvancedImport] = useState(false);
-  const [importSource, setImportSource] = useState<'url' | 'iptv-org' | 'search'>('url');
+  const [importSource, setImportSource] = useState<'url' | 'iptv-org' | 'search' | 'youtube'>('url');
   const [iptvOrgOptions, setIptvOrgOptions] = useState<IptvOrgImportOptions>({
     countries: ['US'],
     excludePluto: true,
@@ -1405,7 +1406,18 @@ export default function IPTVPlayer() {
                     : 'glass hover:bg-white/10 text-white/60'
                 }`}
               >
-                Search Channels
+                Search
+              </button>
+              <button
+                onClick={() => setImportSource('youtube')}
+                disabled={importLoading}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-medium transition-all ${
+                  importSource === 'youtube'
+                    ? 'bg-red-500/30 border border-red-500/50 text-red-300'
+                    : 'glass hover:bg-white/10 text-white/60'
+                }`}
+              >
+                YouTube
               </button>
             </div>
 
@@ -1559,6 +1571,34 @@ export default function IPTVPlayer() {
             {importSource === 'search' && (
               <div className="mb-4">
                 <ChannelSearch
+                  onAddChannel={(channel) => {
+                    setImportedChannels(prev => {
+                      const updated = [...prev, channel];
+                      saveImportedChannels(updated);
+                      return updated;
+                    });
+                  }}
+                  onPlayChannel={(channel) => {
+                    setImportedChannels(prev => {
+                      const exists = prev.some(c => c.url === channel.url);
+                      if (!exists) {
+                        const updated = [...prev, channel];
+                        saveImportedChannels(updated);
+                        return updated;
+                      }
+                      return prev;
+                    });
+                    setSelectedChannel(channel);
+                    setShowImportModal(false);
+                  }}
+                />
+              </div>
+            )}
+
+            {/* YouTube Manager */}
+            {importSource === 'youtube' && (
+              <div className="mb-4">
+                <YouTubeManager
                   onAddChannel={(channel) => {
                     setImportedChannels(prev => {
                       const updated = [...prev, channel];
