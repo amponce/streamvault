@@ -3,87 +3,92 @@ import { NextRequest, NextResponse } from 'next/server';
 // Cache duration: 1 hour
 const CACHE_DURATION = 60 * 60 * 1000;
 
-interface IPTVChannel {
+interface ParsedChannel {
   id: string;
   name: string;
-  alt_names: string[];
-  network: string | null;
-  owners: string[];
-  country: string;
-  subdivision: string | null;
-  city: string | null;
-  broadcast_area: string[];
-  languages: string[];
-  categories: string[];
-  is_nsfw: boolean;
-  launched: string | null;
-  closed: string | null;
-  replaced_by: string | null;
-  website: string | null;
+  group: string;
   logo: string;
-}
-
-interface IPTVStream {
-  channel: string;
-  feed: string | null;
-  title: string | null;
   url: string;
-  referrer: string | null;
-  user_agent: string | null;
-  quality: string | null;
-}
-
-interface IPTVCategory {
-  id: string;
-  name: string;
-}
-
-interface IPTVCountry {
-  code: string;
-  name: string;
-  languages: string[];
-  flag: string;
+  country: string;
 }
 
 interface CachedData {
-  channels: IPTVChannel[];
-  streams: IPTVStream[];
-  categories: IPTVCategory[];
-  countries: IPTVCountry[];
+  channels: ParsedChannel[];
+  groups: string[];
   timestamp: number;
 }
 
 let cachedData: CachedData | null = null;
 
-async function fetchIPTVData(): Promise<CachedData> {
+// Parse M3U content into channel objects
+function parseM3U(content: string): ParsedChannel[] {
+  const channels: ParsedChannel[] = [];
+  const lines = content.split('\n');
+
+  let currentChannel: Partial<ParsedChannel> | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (line.startsWith('#EXTINF:')) {
+      // Parse channel info
+      const tvgIdMatch = line.match(/tvg-id="([^"]*)"/);
+      const tvgNameMatch = line.match(/tvg-name="([^"]*)"/);
+      const tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/);
+      const groupMatch = line.match(/group-title="([^"]*)"/);
+      const nameMatch = line.match(/,(.+)$/);
+
+      // Try to extract country from tvg-id (e.g., "CNN.us" -> "US")
+      const tvgId = tvgIdMatch?.[1] || '';
+      const countryMatch = tvgId.match(/\.([a-z]{2})$/i);
+
+      currentChannel = {
+        id: tvgId || `ch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: tvgNameMatch?.[1] || nameMatch?.[1] || 'Unknown',
+        group: groupMatch?.[1] || 'Uncategorized',
+        logo: tvgLogoMatch?.[1] || '',
+        country: countryMatch?.[1]?.toUpperCase() || '',
+      };
+    } else if (line && !line.startsWith('#') && currentChannel) {
+      // This is the URL line
+      currentChannel.url = line;
+      channels.push(currentChannel as ParsedChannel);
+      currentChannel = null;
+    }
+  }
+
+  return channels;
+}
+
+async function fetchIPTVData(baseUrl: string): Promise<CachedData> {
   // Return cached data if still valid
   if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
     return cachedData;
   }
 
-  const baseUrl = 'https://iptv-org.github.io/api';
+  // Fetch the main iptv-org index through our proxy
+  const m3uUrl = 'https://iptv-org.github.io/iptv/index.m3u';
+  const proxyUrl = `${baseUrl}/api/fetch-m3u?url=${encodeURIComponent(m3uUrl)}`;
 
-  const [channelsRes, streamsRes, categoriesRes, countriesRes] = await Promise.all([
-    fetch(`${baseUrl}/channels.json`, { next: { revalidate: 3600 } }),
-    fetch(`${baseUrl}/streams.json`, { next: { revalidate: 3600 } }),
-    fetch(`${baseUrl}/categories.json`, { next: { revalidate: 3600 } }),
-    fetch(`${baseUrl}/countries.json`, { next: { revalidate: 3600 } }),
-  ]);
+  const response = await fetch(proxyUrl);
 
-  if (!channelsRes.ok || !streamsRes.ok) {
-    throw new Error('Failed to fetch IPTV data');
+  if (!response.ok) {
+    throw new Error(`Failed to fetch M3U: ${response.status}`);
   }
 
-  const channels: IPTVChannel[] = await channelsRes.json();
-  const streams: IPTVStream[] = await streamsRes.json();
-  const categories: IPTVCategory[] = categoriesRes.ok ? await categoriesRes.json() : [];
-  const countries: IPTVCountry[] = countriesRes.ok ? await countriesRes.json() : [];
+  const content = await response.text();
+  const channels = parseM3U(content);
+
+  // Extract unique groups
+  const groupSet = new Set<string>();
+  channels.forEach(ch => {
+    if (ch.group) groupSet.add(ch.group);
+  });
+  const groups = Array.from(groupSet).sort();
 
   cachedData = {
     channels,
-    streams,
-    categories,
-    countries,
+    groups,
     timestamp: Date.now(),
   };
 
@@ -98,62 +103,52 @@ export async function GET(request: NextRequest) {
     const country = searchParams.get('country')?.toLowerCase() || '';
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
-    const listOnly = searchParams.get('list'); // 'categories' or 'countries'
+    const listOnly = searchParams.get('list');
 
-    const data = await fetchIPTVData();
+    // Get base URL for internal API calls
+    const protocol = request.headers.get('x-forwarded-proto') || 'http';
+    const host = request.headers.get('host') || 'localhost:3000';
+    const baseUrl = `${protocol}://${host}`;
 
-    // Return just the list of categories or countries
+    const data = await fetchIPTVData(baseUrl);
+
+    // Return just the list of categories
     if (listOnly === 'categories') {
       return NextResponse.json({
-        categories: data.categories,
+        categories: data.groups.map(g => ({ id: g.toLowerCase(), name: g })),
       });
     }
 
+    // Return countries (extracted from channel data)
     if (listOnly === 'countries') {
-      return NextResponse.json({
-        countries: data.countries.map(c => ({
-          code: c.code,
-          name: c.name,
-          flag: c.flag,
-        })),
+      const countrySet = new Set<string>();
+      data.channels.forEach(ch => {
+        if (ch.country) countrySet.add(ch.country);
       });
-    }
-
-    // Create a map of channel IDs to streams
-    const streamMap = new Map<string, IPTVStream[]>();
-    for (const stream of data.streams) {
-      const existing = streamMap.get(stream.channel) || [];
-      existing.push(stream);
-      streamMap.set(stream.channel, existing);
+      const countries = Array.from(countrySet).sort().map(code => ({
+        code,
+        name: code,
+        flag: '',
+      }));
+      return NextResponse.json({ countries });
     }
 
     // Filter channels
     let filteredChannels = data.channels.filter(channel => {
-      // Must have at least one stream
-      if (!streamMap.has(channel.id)) return false;
-
-      // Filter out NSFW unless explicitly searching for it
-      if (channel.is_nsfw && !query.includes('nsfw')) return false;
-
       // Search query
       if (query) {
         const searchTerms = [
           channel.name.toLowerCase(),
-          ...channel.alt_names.map(n => n.toLowerCase()),
-          channel.network?.toLowerCase() || '',
-          ...channel.categories.map(c => c.toLowerCase()),
+          channel.group.toLowerCase(),
           channel.country.toLowerCase(),
         ].join(' ');
 
         if (!searchTerms.includes(query)) return false;
       }
 
-      // Category filter
+      // Category/group filter
       if (category) {
-        const hasCategory = channel.categories.some(c =>
-          c.toLowerCase() === category || c.toLowerCase().includes(category)
-        );
-        if (!hasCategory) return false;
+        if (!channel.group.toLowerCase().includes(category)) return false;
       }
 
       // Country filter
@@ -173,24 +168,21 @@ export async function GET(request: NextRequest) {
     // Apply pagination
     filteredChannels = filteredChannels.slice(offset, offset + limit);
 
-    // Build response with stream URLs
-    const results = filteredChannels.map(channel => {
-      const channelStreams = streamMap.get(channel.id) || [];
-      return {
-        id: channel.id,
-        name: channel.name,
-        altNames: channel.alt_names,
-        country: channel.country,
-        categories: channel.categories,
-        logo: channel.logo,
-        website: channel.website,
-        streams: channelStreams.map(s => ({
-          url: s.url,
-          quality: s.quality,
-          title: s.title,
-        })),
-      };
-    });
+    // Build response
+    const results = filteredChannels.map(channel => ({
+      id: channel.id,
+      name: channel.name,
+      altNames: [],
+      country: channel.country,
+      categories: [channel.group],
+      logo: channel.logo,
+      website: null,
+      streams: [{
+        url: channel.url,
+        quality: null,
+        title: null,
+      }],
+    }));
 
     return NextResponse.json({
       results,
@@ -203,7 +195,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('IPTV search error:', error);
     return NextResponse.json(
-      { error: 'Failed to search IPTV channels' },
+      { error: 'Failed to search IPTV channels. Try again later.' },
       { status: 500 }
     );
   }
