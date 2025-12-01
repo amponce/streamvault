@@ -26,15 +26,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
     }
 
+    // Determine appropriate headers based on stream source
+    const isPluto = decodedUrl.includes('pluto.tv') ||
+                    decodedUrl.includes('service-stitcher') ||
+                    decodedUrl.includes('stitcher-ipv4') ||
+                    decodedUrl.includes('prd.pluto.tv');
+
+    const headers: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+    };
+
+    if (isPluto) {
+      headers['Origin'] = 'https://pluto.tv';
+      headers['Referer'] = 'https://pluto.tv/';
+    }
+
     // Fetch the stream content
-    const response = await fetch(decodedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': '*/*',
-        'Origin': 'https://pluto.tv',
-        'Referer': 'https://pluto.tv/',
-      },
-    });
+    const response = await fetch(decodedUrl, { headers });
 
     if (!response.ok) {
       return NextResponse.json(
@@ -64,6 +73,15 @@ export async function GET(request: NextRequest) {
       }
 
       const text = await response.text();
+
+      // Check for empty/expired Pluto playlists
+      if (isPluto && text.includes('#EXT-X-ENDLIST') && !text.includes('#EXTINF')) {
+        console.log('Pluto returned expired/empty playlist for:', decodedUrl.substring(0, 100));
+        return NextResponse.json(
+          { error: 'Stream expired or unavailable' },
+          { status: 410 }
+        );
+      }
 
       // Rewrite URLs in the playlist to go through our proxy
       const baseUrl = new URL(decodedUrl);
@@ -162,6 +180,7 @@ function rewritePlaylist(content: string, baseUrl: URL, proxyBaseUrl: string): s
 
 /**
  * Resolve a potentially relative URL against a base URL
+ * Also preserves important query parameters from the base URL
  */
 function resolveUrl(url: string, baseUrl: URL): string {
   // Already absolute
@@ -176,7 +195,28 @@ function resolveUrl(url: string, baseUrl: URL): string {
 
   // Absolute path
   if (url.startsWith('/')) {
-    return `${baseUrl.protocol}//${baseUrl.host}${url}`;
+    // For Pluto TV, preserve query params that might be needed for auth
+    const resolvedUrl = `${baseUrl.protocol}//${baseUrl.host}${url}`;
+
+    // If the URL doesn't have query params but the base does, consider carrying them over
+    // (especially for session params like sid, deviceId, etc.)
+    if (!url.includes('?') && baseUrl.search) {
+      // Only carry over Pluto-specific params
+      const importantParams = ['sid', 'deviceId', 'deviceDNT', 'appName', 'appVersion', 'deviceType', 'deviceMake', 'serverSideAds'];
+      const newParams = new URLSearchParams();
+
+      for (const param of importantParams) {
+        const value = baseUrl.searchParams.get(param);
+        if (value) newParams.set(param, value);
+      }
+
+      const paramStr = newParams.toString();
+      if (paramStr) {
+        return `${resolvedUrl}?${paramStr}`;
+      }
+    }
+
+    return resolvedUrl;
   }
 
   // Relative path - resolve against base URL's directory
