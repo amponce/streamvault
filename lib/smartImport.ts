@@ -9,18 +9,14 @@
 
 import { Channel } from './channels';
 import { fetchPlutoChannels, PlutoChannel } from './plutoTV';
+import {
+  parseM3UExtended,
+  mapGroupToCategory,
+  ExtendedM3UEntry,
+} from './channelUtils';
 
-// Extended M3U entry with full metadata
-export interface ExtendedM3UEntry {
-  name: string;
-  url: string;
-  tvgId?: string;
-  tvgName?: string;
-  tvgLogo?: string;
-  tvgCountry?: string;
-  tvgLanguage?: string;
-  groupTitle?: string;
-}
+// Re-export for backwards compatibility
+export type { ExtendedM3UEntry } from './channelUtils';
 
 // Import options for filtering
 export interface ImportOptions {
@@ -249,65 +245,6 @@ export function normalizeCountryCode(country: string): string {
 }
 
 /**
- * Parse M3U content with extended metadata extraction
- */
-export function parseM3UExtended(content: string): ExtendedM3UEntry[] {
-  const entries: ExtendedM3UEntry[] = [];
-  const lines = content.split('\n').map(line => line.trim()).filter(Boolean);
-
-  let currentEntry: Partial<ExtendedM3UEntry> = {};
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Skip header
-    if (line.startsWith('#EXTM3U')) continue;
-
-    // Parse EXTINF line
-    if (line.startsWith('#EXTINF:')) {
-      // Extract all attributes
-      const tvgIdMatch = line.match(/tvg-id="([^"]*)"/i);
-      const tvgNameMatch = line.match(/tvg-name="([^"]*)"/i);
-      const tvgLogoMatch = line.match(/tvg-logo="([^"]*)"/i);
-      const tvgCountryMatch = line.match(/tvg-country="([^"]*)"/i);
-      const tvgLanguageMatch = line.match(/tvg-language="([^"]*)"/i);
-      const groupTitleMatch = line.match(/group-title="([^"]*)"/i);
-
-      // Extract channel name (after the comma)
-      const nameMatch = line.match(/,(.+)$/);
-
-      currentEntry = {
-        tvgId: tvgIdMatch?.[1],
-        tvgName: tvgNameMatch?.[1],
-        tvgLogo: tvgLogoMatch?.[1],
-        tvgCountry: tvgCountryMatch?.[1],
-        tvgLanguage: tvgLanguageMatch?.[1],
-        groupTitle: groupTitleMatch?.[1],
-        name: nameMatch?.[1]?.trim() || 'Unknown Channel',
-      };
-    }
-    // URL line (not a comment)
-    else if (!line.startsWith('#') && (line.startsWith('http') || line.startsWith('//'))) {
-      if (currentEntry.name) {
-        entries.push({
-          name: currentEntry.name,
-          url: line.startsWith('//') ? 'https:' + line : line,
-          tvgId: currentEntry.tvgId,
-          tvgName: currentEntry.tvgName,
-          tvgLogo: currentEntry.tvgLogo,
-          tvgCountry: currentEntry.tvgCountry,
-          tvgLanguage: currentEntry.tvgLanguage,
-          groupTitle: currentEntry.groupTitle,
-        });
-      }
-      currentEntry = {};
-    }
-  }
-
-  return entries;
-}
-
-/**
  * Validate a single stream URL with timeout
  * Note: Due to CORS restrictions in browsers, many valid streams will fail validation
  * but still work in HLS.js. We use a lenient approach that assumes streams are valid
@@ -453,25 +390,6 @@ async function validateStreamsBatch(
   }
 
   return results;
-}
-
-/**
- * Map group title to app category
- */
-function mapGroupToCategory(groupTitle: string): string {
-  const lower = groupTitle.toLowerCase();
-
-  if (lower.includes('news')) return 'News';
-  if (lower.includes('sport')) return 'Sports';
-  if (lower.includes('movie') || lower.includes('film') || lower.includes('cinema')) return 'Movies';
-  if (lower.includes('music') || lower.includes('mtv')) return 'Music';
-  if (lower.includes('kid') || lower.includes('child') || lower.includes('cartoon') || lower.includes('disney') || lower.includes('nick')) return 'Kids';
-  if (lower.includes('documentary') || lower.includes('doc') || lower.includes('history') || lower.includes('discovery') || lower.includes('nat geo')) return 'Documentary';
-  if (lower.includes('horror') || lower.includes('terror') || lower.includes('thriller') || lower.includes('crime')) return 'Horror';
-  if (lower.includes('comedy') || lower.includes('funny')) return 'Comedy';
-  if (lower.includes('local') || lower.includes('usa') || lower.includes('us ')) return 'Local';
-
-  return 'Entertainment';
 }
 
 /**
