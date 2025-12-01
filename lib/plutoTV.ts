@@ -3,6 +3,15 @@
  * Fetches fresh stream URLs from Pluto TV's API
  */
 
+export interface PlutoCurrentProgram {
+  title: string;
+  description?: string;
+  series?: string;
+  genre?: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface PlutoChannel {
   id: string;
   slug: string;
@@ -11,6 +20,7 @@ export interface PlutoChannel {
   category: string;
   streamUrl: string;
   logo?: string;
+  currentProgram?: PlutoCurrentProgram | null;
 }
 
 interface PlutoAPIChannel {
@@ -20,36 +30,28 @@ interface PlutoAPIChannel {
   name: string;
   number: number;
   category: string;
-  // v4/start format
+  streamUrl?: string;  // Added by our API proxy
+  currentProgram?: PlutoCurrentProgram | null;  // Added by our API proxy
   stitched?: {
     urls?: Array<{
       type: string;
       url: string;
     }>;
   };
-  // v2/channels format
-  stitcherParams?: string;
-  // Common image fields
-  colorLogoPNG?: {
-    path: string;
-  };
-  thumbnail?: {
-    path: string;
-  };
-  logo?: {
-    path: string;
-  };
-  featuredImage?: {
-    path: string;
-  };
+  colorLogoPNG?: { path: string };
+  thumbnail?: { path: string };
+  logo?: { path: string };
+  featuredImage?: { path: string };
 }
 
-interface PlutoBootResponse {
+interface PlutoAPIResponse {
   channels?: PlutoAPIChannel[];
-  EPG?: PlutoAPIChannel[];
-  // Direct array response from v2/channels
-  [index: number]: PlutoAPIChannel;
-  length?: number;
+  sessionInfo?: {
+    deviceId: string;
+    sid: string;
+    generatedAt: string;
+  };
+  source?: string;
 }
 
 // Cache for Pluto channels with TTL
@@ -151,6 +153,7 @@ function generateStreamUrl(ch: PlutoAPIChannel): string | null {
 
 /**
  * Fetch fresh Pluto TV channels via our API proxy (avoids CORS)
+ * The API proxy now handles URL generation with proper UUIDs
  */
 export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
   // Return cached if still valid
@@ -173,43 +176,26 @@ export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
       return [];
     }
 
-    const data = await response.json();
-    const channels: PlutoChannel[] = [];
+    const data: PlutoAPIResponse = await response.json();
 
-    // Handle different response formats
-    let apiChannels: PlutoAPIChannel[] = [];
-
-    if (Array.isArray(data)) {
-      // Direct array response (v2/channels format)
-      apiChannels = data;
-      console.log('Pluto API returned direct array format');
-    } else if (data.channels) {
-      // Object with channels property (v4/start format)
-      apiChannels = data.channels;
-      console.log('Pluto API returned channels object format');
-    } else if (data.EPG) {
-      // Object with EPG property
-      apiChannels = data.EPG;
-      console.log('Pluto API returned EPG format');
+    if (data.sessionInfo) {
+      console.log(`Pluto session: deviceId=${data.sessionInfo.deviceId.substring(0, 8)}...`);
     }
 
-    console.log(`Pluto API returned ${apiChannels.length} raw channels`);
+    const apiChannels = data.channels || [];
+    console.log(`Pluto API returned ${apiChannels.length} channels`);
 
-    let stitchedCount = 0;
-    let generatedCount = 0;
+    const channels: PlutoChannel[] = [];
 
     for (const ch of apiChannels) {
       if (!ch.name) continue;
 
-      // Check if this channel has a stitched URL
-      const hasStitched = ch.stitched?.urls?.some(u => u.type === 'hls');
-      if (hasStitched) stitchedCount++;
-
-      // Generate or extract stream URL
-      const streamUrl = generateStreamUrl(ch);
-      if (!streamUrl) continue;
-
-      if (!hasStitched) generatedCount++;
+      // The API proxy now provides streamUrl directly
+      const streamUrl = ch.streamUrl;
+      if (!streamUrl) {
+        console.log(`Channel ${ch.name} has no streamUrl, skipping`);
+        continue;
+      }
 
       const channelId = ch._id || ch.id || ch.slug;
       channels.push({
@@ -220,10 +206,9 @@ export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
         category: mapCategory(ch.category || 'Entertainment'),
         streamUrl: streamUrl,
         logo: ch.colorLogoPNG?.path || ch.thumbnail?.path || ch.logo?.path || ch.featuredImage?.path,
+        currentProgram: ch.currentProgram,
       });
     }
-
-    console.log(`Pluto: ${stitchedCount} with stitched URLs, ${generatedCount} with generated URLs`);
 
     // Cache the results
     plutoCache = {
@@ -231,7 +216,7 @@ export async function fetchPlutoChannels(): Promise<PlutoChannel[]> {
       fetchedAt: Date.now(),
     };
 
-    console.log(`Parsed ${channels.length} Pluto TV channels with stream URLs`);
+    console.log(`Parsed ${channels.length} Pluto TV channels with fresh URLs`);
     return channels;
   } catch (error) {
     console.error('Failed to fetch Pluto channels:', error);
