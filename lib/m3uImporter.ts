@@ -233,6 +233,14 @@ export const popularM3USources = [
     category: 'all',
   },
 
+  // === COMMUNITY CURATED ===
+  {
+    name: 'USA Channels (Curated)',
+    url: 'https://raw.githubusercontent.com/tdog3344/USA2/5dfa4737b1219c95be8e65c01ffa670a67a331ce/m3u',
+    description: 'Curated US channels collection',
+    category: 'all',
+  },
+
   // === FREE-TV ===
   {
     name: 'Free-TV (All)',
