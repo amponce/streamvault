@@ -85,13 +85,10 @@ function getTimeRange(): { start: string; stop: string } {
 
   const stop = new Date(now.getTime() + 6 * 60 * 60 * 1000); // +6 hours
 
-  const formatDate = (d: Date) => {
-    return d.toISOString().replace('T', ' ').replace('Z', '+00:00');
-  };
-
+  // Format as ISO string (Pluto API accepts this format)
   return {
-    start: formatDate(now),
-    stop: formatDate(stop)
+    start: now.toISOString(),
+    stop: stop.toISOString()
   };
 }
 
@@ -122,7 +119,9 @@ export async function GET() {
       throw new Error(`API returned ${response.status}`);
     }
 
-    const channels: PlutoChannel[] = await response.json();
+    const data = await response.json();
+    // API may return array directly or object with channels property
+    const channels: PlutoChannel[] = Array.isArray(data) ? data : (data.channels || []);
     console.log(`Pluto API returned ${channels.length} channels`);
 
     // Process channels: rebuild URLs with fresh session params

@@ -503,9 +503,21 @@ export async function smartImport(
 
   let content: string;
   try {
-    const response = await fetch(fetchUrl, { signal });
+    // Use server-side proxy to bypass CORS for external M3U files
+    const proxyUrl = `/api/fetch-m3u?url=${encodeURIComponent(fetchUrl)}`;
+    const response = await fetch(proxyUrl, { signal });
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Try to get error message from proxy response
+      let errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMsg = errorData.error;
+        }
+      } catch {
+        // Ignore JSON parse errors
+      }
+      throw new Error(errorMsg);
     }
     content = await response.text();
   } catch (error) {
