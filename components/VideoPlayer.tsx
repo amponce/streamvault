@@ -246,6 +246,9 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
     resetControlsTimer();
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    // Initialize end positions to start positions
+    touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
   }, [resetControlsTimer]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -253,7 +256,7 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
     touchEndY.current = e.touches[0].clientY;
   }, []);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+  const handleTouchEnd = useCallback(() => {
     const deltaX = touchEndX.current - touchStartX.current;
     const deltaY = touchEndY.current - touchStartY.current;
 
@@ -266,9 +269,8 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
         // Swipe left = next channel
         onSwipeLeft?.();
       }
-    } else if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
-      // It's a tap, not a swipe - toggle play
-      e.preventDefault();
+    } else if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10 && !error) {
+      // It's a tap, not a swipe - toggle play (only if not in error state)
       togglePlay();
     }
 
@@ -277,7 +279,7 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
     touchStartY.current = 0;
     touchEndX.current = 0;
     touchEndY.current = 0;
-  }, [onSwipeLeft, onSwipeRight, togglePlay]);
+  }, [onSwipeLeft, onSwipeRight, togglePlay, error]);
 
   return (
     <div
