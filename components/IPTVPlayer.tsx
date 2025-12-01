@@ -22,6 +22,7 @@ import {
   CONTENT_FILTER_ICONS,
 } from '@/constants/icons';
 import { ChannelCard } from './ChannelCard';
+import { ChannelSearch } from './ChannelSearch';
 import {
   getCurrentProgram,
   getUpcomingPrograms,
@@ -113,7 +114,7 @@ export default function IPTVPlayer() {
     filterLanguage: [],
   });
   const [showAdvancedImport, setShowAdvancedImport] = useState(false);
-  const [importSource, setImportSource] = useState<'url' | 'iptv-org'>('url');
+  const [importSource, setImportSource] = useState<'url' | 'iptv-org' | 'search'>('url');
   const [iptvOrgOptions, setIptvOrgOptions] = useState<IptvOrgImportOptions>({
     countries: ['US'],
     excludePluto: true,
@@ -1367,7 +1368,7 @@ export default function IPTVPlayer() {
               <button
                 onClick={() => setImportSource('url')}
                 disabled={importLoading}
-                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-medium transition-all ${
                   importSource === 'url'
                     ? 'bg-violet-500/30 border border-violet-500/50 text-violet-300'
                     : 'glass hover:bg-white/10 text-white/60'
@@ -1378,13 +1379,24 @@ export default function IPTVPlayer() {
               <button
                 onClick={() => setImportSource('iptv-org')}
                 disabled={importLoading}
-                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-medium transition-all ${
                   importSource === 'iptv-org'
                     ? 'bg-green-500/30 border border-green-500/50 text-green-300'
                     : 'glass hover:bg-white/10 text-white/60'
                 }`}
               >
-                IPTV-org Database
+                Bulk Import
+              </button>
+              <button
+                onClick={() => setImportSource('search')}
+                disabled={importLoading}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-medium transition-all ${
+                  importSource === 'search'
+                    ? 'bg-cyan-500/30 border border-cyan-500/50 text-cyan-300'
+                    : 'glass hover:bg-white/10 text-white/60'
+                }`}
+              >
+                Search Channels
               </button>
             </div>
 
@@ -1531,6 +1543,34 @@ export default function IPTVPlayer() {
                     className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-green-500"
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Channel Search */}
+            {importSource === 'search' && (
+              <div className="mb-4">
+                <ChannelSearch
+                  onAddChannel={(channel) => {
+                    setImportedChannels(prev => {
+                      const updated = [...prev, channel];
+                      saveImportedChannels(updated);
+                      return updated;
+                    });
+                  }}
+                  onPlayChannel={(channel) => {
+                    setImportedChannels(prev => {
+                      const exists = prev.some(c => c.streamUrl === channel.streamUrl);
+                      if (!exists) {
+                        const updated = [...prev, channel];
+                        saveImportedChannels(updated);
+                        return updated;
+                      }
+                      return prev;
+                    });
+                    setSelectedChannel(channel);
+                    setShowImportModal(false);
+                  }}
+                />
               </div>
             )}
 
