@@ -35,6 +35,14 @@ export const popularM3USources: M3USource[] = [
     category: 'all',
   },
 
+  // === YOUTUBE LIVE ===
+  {
+    name: 'YouTube Live Channels',
+    url: 'https://raw.githubusercontent.com/benmoose39/YouTube_to_m3u/main/youtube.m3u',
+    description: 'YouTube 24/7 live streams - News, Music, Nature & more',
+    category: 'all',
+  },
+
   // === FREE-TV (uses EPGShare01 guide data) ===
   {
     name: 'Free-TV (All)',
