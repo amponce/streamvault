@@ -131,9 +131,7 @@ export function ChannelSearch({ onAddChannel, onPlayChannel }: ChannelSearchProp
       number: 900 + Math.floor(Math.random() * 100),
       name: result.name,
       category: result.categories[0] || 'Entertainment',
-      logo: result.logo || undefined,
-      streamUrl: stream.url,
-      description: result.altNames.join(', ') || `${result.country} channel`,
+      url: stream.url,
     };
 
     onAddChannel(channel);
@@ -150,9 +148,7 @@ export function ChannelSearch({ onAddChannel, onPlayChannel }: ChannelSearchProp
       number: 900 + Math.floor(Math.random() * 100),
       name: result.name,
       category: result.categories[0] || 'Entertainment',
-      logo: result.logo || undefined,
-      streamUrl: stream.url,
-      description: result.altNames.join(', ') || `${result.country} channel`,
+      url: stream.url,
     };
 
     onPlayChannel(channel);
