@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { allChannels, categories, Category, Channel } from '@/lib/channels';
+import { allChannels, originalChannels, categories, Category, Channel } from '@/lib/channels';
 import { loadBrokenChannels, saveBrokenChannel, clearBrokenChannels } from '@/lib/channelHealth';
 import {
   getTimeBasedRecommendations,
@@ -419,13 +419,18 @@ export default function IPTVPlayer() {
   }, []);
 
   const handleAIRecommendation = useCallback(() => {
-    // Only pick from displayed (valid) channels to avoid dead links
-    if (displayedChannels.length > 0) {
-      const randomIndex = Math.floor(Math.random() * displayedChannels.length);
-      playChannel(displayedChannels[randomIndex]);
+    // Only pick from core channels (not imported or Pluto), excluding dead links
+    const coreChannels = originalChannels.filter(ch => {
+      const result = validationResults.get(ch.id);
+      return !result || result.isValid;
+    });
+
+    if (coreChannels.length > 0) {
+      const randomIndex = Math.floor(Math.random() * coreChannels.length);
+      playChannel(coreChannels[randomIndex]);
       setShowAIPanel(false);
     }
-  }, [playChannel, displayedChannels]);
+  }, [playChannel, validationResults]);
 
   const handleMoodSelection = useCallback((mood: Mood) => {
     // Filter mood channels to only include displayed (valid) ones
