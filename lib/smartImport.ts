@@ -65,15 +65,10 @@ export type ImportProgressCallback = (progress: {
   message: string;
 }) => void;
 
-// NSFW keywords to detect adult content
-const NSFW_KEYWORDS = [
-  'xxx', 'adult', 'porn', 'erotic', '18+', 'playboy', 'penthouse',
-  'hustler', 'brazzers', 'bangbros', 'vivid', 'redtube', 'pornhub',
-  'xvideos', 'xnxx', 'youporn', 'spankbang', 'clips4sale', 'onlyfans',
-  'camgirl', 'stripchat', 'chaturbate', 'livejasmin', 'bongacams',
-  'mature', 'milf', 'nude', 'naked', 'sex channel', 'private spice',
-  'babestation', 'venus', 'dorcel', 'hustler tv', 'pink', 'naughty',
-];
+// Adult content detection - uses category metadata and minimal keywords
+// Most M3U playlists tag adult content with these category names
+const ADULT_CATEGORIES = ['adult', 'xxx', '18+', 'mature'];
+const ADULT_MARKERS = ['xxx', '18+', 'adult only'];
 
 // Country name to ISO code mapping
 const COUNTRY_CODES: Record<string, string> = {
@@ -130,17 +125,20 @@ export function convertGitHubUrl(url: string): string {
 }
 
 /**
- * Detect if content is NSFW based on name and metadata
+ * Detect if content is adult-only based on category metadata
+ * Relies on M3U playlists properly categorizing their content
  */
 export function detectNsfw(entry: Partial<ExtendedM3UEntry>): boolean {
-  const searchText = [
-    entry.name || '',
-    entry.tvgName || '',
-    entry.groupTitle || '',
-    entry.tvgId || '',
-  ].join(' ').toLowerCase();
+  const category = (entry.groupTitle || '').toLowerCase();
+  const name = (entry.name || '').toLowerCase();
 
-  return NSFW_KEYWORDS.some(keyword => searchText.includes(keyword));
+  // Check if category is explicitly adult
+  const isAdultCategory = ADULT_CATEGORIES.some(cat => category.includes(cat));
+
+  // Check for explicit markers in channel name
+  const hasAdultMarker = ADULT_MARKERS.some(marker => name.includes(marker));
+
+  return isAdultCategory || hasAdultMarker;
 }
 
 /**
