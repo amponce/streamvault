@@ -4,8 +4,8 @@
   "description": "Stream live TV and movies with AI-powered recommendations",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a0f",
-  "theme_color": "#8b5cf6",
+  "background_color": "#0a0a0a",
+  "theme_color": "#db0000",
   "orientation": "any",
   "scope": "/",
   "icons": [
