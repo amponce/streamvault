@@ -47,6 +47,10 @@ body {
   background-attachment: fixed;
 }
 
+.logo-sidebar {
+  color:#e1caa8 !important;
+}
+
 /* Glass morphism classes */
 .glass {
   background: rgba(255, 255, 255, 0.03);

@@ -15,7 +15,7 @@ import {
   getChannelsByMood,
   loadUserPreferences,
 } from '@/lib/aiFeatures';
-import { Send, Loader2, Sparkles, Heart, Settings, ChevronDown, Film, Tv, LayoutGrid } from 'lucide-react';
+import { Send, Loader2, Sparkles, Heart, Settings, ChevronDown, Film, Tv, LayoutGrid, Youtube, Grid3x3, List } from 'lucide-react';
 import {
   CATEGORY_ICONS,
   MOOD_ICONS,
@@ -24,6 +24,8 @@ import {
 import { ChannelCard } from './ChannelCard';
 import { ChannelSearch } from './ChannelSearch';
 import { YouTubeManager } from './YouTubeManager';
+import { YouTubeGallery } from './YouTubeGallery';
+import { GalleryOverlay } from './GalleryOverlay';
 import {
   getCurrentProgram,
   getUpcomingPrograms,
@@ -79,8 +81,20 @@ const VideoPlayer = dynamic(() => import('./VideoPlayer'), {
   ),
 });
 
+const YouTubePlayer = dynamic(() => import('./YouTubePlayer'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-black/50 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-white/60 text-sm">Loading YouTube player...</span>
+      </div>
+    </div>
+  ),
+});
+
 type ViewMode = 'browse' | 'schedule' | 'discover';
-type ContentFilter = 'all' | 'movies' | 'tv';
+type ContentFilter = 'all' | 'movies' | 'tv' | 'youtube';
 
 // Map categories to content types for filtering
 const movieCategories = new Set(['Movies', 'Horror', 'Comedy']);
@@ -96,6 +110,7 @@ export default function IPTVPlayer() {
   const [brokenChannels, setBrokenChannels] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
+  const [galleryView, setGalleryView] = useState(false); // Toggle between list and gallery
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [currentProgram, setCurrentProgram] = useState<ProgramSlot | null>(null);
   const [programProgress, setProgramProgress] = useState(0);
@@ -233,6 +248,8 @@ export default function IPTVPlayer() {
       filtered = filtered.filter(ch => movieCategories.has(ch.category));
     } else if (contentFilter === 'tv') {
       filtered = filtered.filter(ch => tvCategories.has(ch.category));
+    } else if (contentFilter === 'youtube') {
+      filtered = filtered.filter(ch => ch.id.startsWith('youtube-') || ch.id.startsWith('yt-'));
     }
 
     // Handle special categories
@@ -690,7 +707,7 @@ export default function IPTVPlayer() {
                 className="w-20 h-20 object-contain"
               />
               <div>
-                <span className="text-xl font-bold text-red-500">SHOWSTREAMS</span>
+                <span className="text-xl font-bold logo-sidebar">SHOWSTREAMS</span>
                 <p className="text-xs text-white/40">{timeRecs.greeting}</p>
               </div>
             </div>
@@ -731,18 +748,22 @@ export default function IPTVPlayer() {
                 {contentFilter === 'all' && <LayoutGrid size={16} className="text-red-500" />}
                 {contentFilter === 'movies' && <Film size={16} className="text-red-500" />}
                 {contentFilter === 'tv' && <Tv size={16} className="text-red-500" />}
+                {contentFilter === 'youtube' && <Youtube size={16} className="text-red-500" />}
                 <span>
-                  {contentFilter === 'all' ? 'All Content' : contentFilter === 'movies' ? 'Movies' : 'TV Shows'}
+                  {contentFilter === 'all' ? 'All Content' :
+                   contentFilter === 'movies' ? 'Movies' :
+                   contentFilter === 'tv' ? 'TV Shows' : 'YouTube'}
                 </span>
               </div>
               <ChevronDown size={16} className={`text-white/50 transition-transform ${showContentFilterDropdown ? 'rotate-180' : ''}`} />
             </button>
             {showContentFilterDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 py-1 rounded-xl glass-card border border-white/10 z-50 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-1 py-1 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/20 z-50 overflow-hidden shadow-2xl">
                 {[
                   { value: 'all', label: 'All Content', icon: <LayoutGrid size={16} /> },
                   { value: 'movies', label: 'Movies', icon: <Film size={16} /> },
                   { value: 'tv', label: 'TV Shows', icon: <Tv size={16} /> },
+                  { value: 'youtube', label: 'YouTube', icon: <Youtube size={16} /> },
                 ].map((option) => (
                   <button
                     key={option.value}
@@ -751,13 +772,13 @@ export default function IPTVPlayer() {
                       setSelectedCategory('All');
                       setShowContentFilterDropdown(false);
                     }}
-                    className={`w-full px-4 py-2.5 flex items-center gap-2 text-sm transition-all ${
+                    className={`w-full px-4 py-2.5 flex items-center gap-2 text-sm font-medium transition-all ${
                       contentFilter === option.value
                         ? 'bg-red-500/20 text-red-400'
-                        : 'text-white/70 hover:bg-white/5 hover:text-white'
+                        : 'text-white hover:bg-white/10 hover:text-white'
                     }`}
                   >
-                    <span className={contentFilter === option.value ? 'text-red-500' : 'text-white/50'}>{option.icon}</span>
+                    <span className={contentFilter === option.value ? 'text-red-500' : 'text-white/70'}>{option.icon}</span>
                     {option.label}
                   </button>
                 ))}
@@ -786,12 +807,43 @@ export default function IPTVPlayer() {
         {/* Category Pills */}
         {viewMode === 'browse' && (
           <div className="px-4 py-3 border-b border-white/5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-white/40 uppercase tracking-wider">Categories</div>
+              {/* Gallery/List toggle - Only show for YouTube channels */}
+              {(contentFilter === 'youtube' || displayedChannels.some(ch => ch.id.startsWith('youtube-') || ch.id.startsWith('yt-'))) && (
+                <div className="flex gap-1 p-0.5 glass rounded-lg">
+                  <button
+                    onClick={() => setGalleryView(false)}
+                    className={`p-1.5 rounded transition-all ${
+                      !galleryView
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/40 hover:text-white/60'
+                    }`}
+                    title="List view"
+                  >
+                    <List size={14} />
+                  </button>
+                  <button
+                    onClick={() => setGalleryView(true)}
+                    className={`p-1.5 rounded transition-all ${
+                      galleryView
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/40 hover:text-white/60'
+                    }`}
+                    title="Gallery view"
+                  >
+                    <Grid3x3 size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
               {categories
                 .filter(cat => {
                   if (cat === 'Favorites' || cat === 'All' || cat === 'Imported') return true;
                   if (contentFilter === 'movies') return movieCategories.has(cat);
                   if (contentFilter === 'tv') return tvCategories.has(cat);
+                  if (contentFilter === 'youtube') return cat === 'Horror'; // YouTube channels are in Horror
                   return true;
                 })
                 .map(cat => (
@@ -838,14 +890,15 @@ export default function IPTVPlayer() {
               <p className="text-sm text-white/40">Loading channels...</p>
             </div>
           ) : viewMode === 'browse' ? (
-            /* Channel List - Limited on mobile for performance */
-            <div className="space-y-2">
-              {displayedChannels.length === 0 ? (
-                <div className="text-center py-12 text-white/40">
-                  <p className="text-sm">No channels found</p>
-                </div>
-              ) : (
-                (isMobile ? displayedChannels.slice(0, 50) : displayedChannels).map((channel, index) => (
+            /* Channel List - Always show list in sidebar, gallery is shown as overlay in main content */
+            displayedChannels.length === 0 ? (
+              <div className="text-center py-12 text-white/40">
+                <p className="text-sm">No channels found</p>
+              </div>
+            ) : (
+              /* List View - Always shown in sidebar */
+              <div className="space-y-2">
+                {(isMobile ? displayedChannels.slice(0, 50) : displayedChannels).map((channel, index) => (
                   <ChannelCard
                     key={channel.id}
                     channel={channel}
@@ -855,16 +908,16 @@ export default function IPTVPlayer() {
                     onPlay={() => playChannel(channel)}
                     onToggleFavorite={() => toggleFavorite(channel)}
                   />
-                ))
-              )}
-              {isMobile && displayedChannels.length > 50 && (
-                <div className="text-center py-4">
-                  <p className="text-xs text-white/40">
-                    Showing 50 of {displayedChannels.length} channels. Use search to find more.
-                  </p>
-                </div>
-              )}
-            </div>
+                ))}
+                {isMobile && displayedChannels.length > 50 && (
+                  <div className="text-center py-4">
+                    <p className="text-xs text-white/40">
+                      Showing 50 of {displayedChannels.length} channels. Use search to find more.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
           ) : viewMode === 'schedule' ? (
             /* Schedule View */
             <div className="space-y-4">
@@ -1127,15 +1180,23 @@ export default function IPTVPlayer() {
         >
           {selectedChannel ? (
             <>
-              <VideoPlayer
-                channel={selectedChannel}
-                onStreamError={handleStreamError}
-                onSwipeLeft={nextChannel}
-                onSwipeRight={prevChannel}
-                onReportDead={handleReportDead}
-                onAskAI={() => setShowAskAI(true)}
-                hasAIContext={selectedChannel.id.startsWith('pluto-') || !!currentProgram}
-              />
+              {selectedChannel.url.includes('youtube.com') || selectedChannel.url.includes('youtu.be') ? (
+                <YouTubePlayer
+                  channel={selectedChannel}
+                  onSwipeLeft={nextChannel}
+                  onSwipeRight={prevChannel}
+                />
+              ) : (
+                <VideoPlayer
+                  channel={selectedChannel}
+                  onStreamError={handleStreamError}
+                  onSwipeLeft={nextChannel}
+                  onSwipeRight={prevChannel}
+                  onReportDead={handleReportDead}
+                  onAskAI={() => setShowAskAI(true)}
+                  hasAIContext={selectedChannel.id.startsWith('pluto-') || !!currentProgram}
+                />
+              )}
               {/* Now Playing Overlay - Auto-hides, Mobile Friendly */}
               <div
                 className={`absolute top-0 left-0 right-0 p-3 md:p-6 video-overlay-gradient pointer-events-none transition-opacity duration-500 ${
@@ -1199,6 +1260,21 @@ export default function IPTVPlayer() {
                 </button>
               </div>
             </div>
+          )}
+
+          {/* YouTube Gallery Overlay - Shows in main content area when gallery view is active */}
+          {galleryView && displayedChannels.some(ch => ch.id.startsWith('youtube-') || ch.id.startsWith('yt-')) && (
+            <GalleryOverlay
+              channels={displayedChannels.filter(ch => ch.id.startsWith('youtube-') || ch.id.startsWith('yt-'))}
+              selectedChannelId={selectedChannel?.id}
+              favoriteIds={favoriteIds}
+              onPlay={(channel) => {
+                playChannel(channel);
+                setGalleryView(false);
+              }}
+              onToggleFavorite={toggleFavorite}
+              onClose={() => setGalleryView(false)}
+            />
           )}
         </div>
 

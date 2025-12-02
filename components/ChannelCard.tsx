@@ -23,12 +23,21 @@ function ChannelCardComponent({
   onToggleFavorite,
 }: ChannelCardProps) {
   return (
-    <button
+    <div
       onClick={onPlay}
-      className={`w-full glass-card channel-card rounded-xl p-3 text-left fade-in ${
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onPlay();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className={`w-full glass-card channel-card rounded-xl p-3 text-left fade-in cursor-pointer ${
         isSelected ? 'glass-button-active glow-purple' : ''
       }`}
       style={{ animationDelay: `${animationDelay}ms` }}
+      aria-label={`Play ${channel.name}, channel ${channel.number}`}
     >
       <div className="flex items-center gap-3">
         <div
@@ -75,6 +84,7 @@ function ChannelCardComponent({
               : 'text-white/30 hover:text-white/60'
           }`}
           title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         >
           <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
         </button>
@@ -85,7 +95,7 @@ function ChannelCardComponent({
           </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
