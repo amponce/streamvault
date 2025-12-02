@@ -656,7 +656,7 @@ export default function IPTVPlayer() {
               <img
                 src="/skull.png"
                 alt="ShowStreams"
-                className="w-12 h-12 object-contain"
+                className="w-20 h-20 object-contain"
               />
               <div>
                 <span className="text-xl font-bold text-red-500">Show Streams</span>
@@ -1118,7 +1118,7 @@ export default function IPTVPlayer() {
                 alt="ShowStreams"
                 className="w-56 h-56 md:w-80 md:h-80 object-contain"
               />
-              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 px-4 -mt-2">
+              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 px-4 -mt-14 md:-mt-16">
                 Select a channel from the guide or let AI find something perfect for you.
               </p>
               <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-xs md:max-w-none md:w-auto">
