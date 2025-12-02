@@ -690,29 +690,21 @@ export default function IPTVPlayer() {
             />
           </div>
 
-          {/* Content Type Filter */}
-          <div className="flex gap-1 p-1 glass rounded-xl mb-3">
-            {([
-              { key: 'movies' as ContentFilter, label: 'Movies' },
-              { key: 'tv' as ContentFilter, label: 'TV' },
-              { key: 'all' as ContentFilter, label: 'All' },
-            ]).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => {
-                  setContentFilter(key);
-                  setSelectedCategory('All'); // Reset category when switching content type
-                }}
-                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 ${
-                  contentFilter === key
-                    ? 'bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg'
-                    : 'text-white/50 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {CONTENT_FILTER_ICONS[key]}
-                <span>{label}</span>
-              </button>
-            ))}
+          {/* Content Type Filter Dropdown */}
+          <div className="mb-3">
+            <select
+              value={contentFilter}
+              onChange={(e) => {
+                setContentFilter(e.target.value as ContentFilter);
+                setSelectedCategory('All');
+              }}
+              className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-medium appearance-none cursor-pointer focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
+            >
+              <option value="all" className="bg-[#1a1a1a] text-white">All Content</option>
+              <option value="movies" className="bg-[#1a1a1a] text-white">Movies</option>
+              <option value="tv" className="bg-[#1a1a1a] text-white">TV Shows</option>
+            </select>
           </div>
 
           {/* View Mode Tabs */}
@@ -733,38 +725,48 @@ export default function IPTVPlayer() {
           </div>
         </div>
 
-        {/* Category Dropdown */}
+        {/* Category Pills */}
         {viewMode === 'browse' && (
           <div className="px-4 py-3 border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value as Category)}
-                className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-medium appearance-none cursor-pointer focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30"
-                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
-              >
-                {categories
-                  .filter(cat => {
-                    if (cat === 'Favorites' || cat === 'All') return true;
-                    if (contentFilter === 'movies') return movieCategories.has(cat);
-                    if (contentFilter === 'tv') return tvCategories.has(cat);
-                    return true;
-                  })
-                  .map(cat => (
-                    <option key={cat} value={cat} className="bg-[#1a1a1a] text-white">
-                      {CATEGORY_ICONS[cat]} {cat}
-                      {cat === 'Favorites' && favoriteIds.size > 0 ? ` (${favoriteIds.size})` : ''}
-                      {cat === 'Imported' && importedChannels.length > 0 ? ` (${importedChannels.length})` : ''}
-                    </option>
-                  ))}
-              </select>
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {categories
+                .filter(cat => {
+                  if (cat === 'Favorites' || cat === 'All') return true;
+                  if (contentFilter === 'movies') return movieCategories.has(cat);
+                  if (contentFilter === 'tv') return tvCategories.has(cat);
+                  return true;
+                })
+                .map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                    selectedCategory === cat
+                      ? 'category-pill-active text-white'
+                      : 'category-pill text-white/60 hover:text-white'
+                  }`}
+                >
+                  <span>{CATEGORY_ICONS[cat]}</span>
+                  <span>{cat}</span>
+                  {cat === 'Favorites' && favoriteIds.size > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 text-[10px] bg-red-500/80 rounded-full">
+                      {favoriteIds.size}
+                    </span>
+                  )}
+                  {cat === 'Imported' && importedChannels.length > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 text-[10px] bg-cyan-500/80 rounded-full">
+                      {importedChannels.length}
+                    </span>
+                  )}
+                </button>
+              ))}
               {/* Favorites Manager Button */}
               <button
                 onClick={() => setShowFavoritesManager(true)}
-                className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-red-500/50 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all category-pill text-white/60 hover:text-white"
                 title="Manage Favorites"
               >
-                <Settings size={18} />
+                <Settings size={14} />
               </button>
             </div>
           </div>
