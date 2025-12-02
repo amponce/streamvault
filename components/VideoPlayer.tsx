@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Hls from 'hls.js';
+import { Sparkles } from 'lucide-react';
 import { Channel } from '@/lib/channels';
 
 interface VideoPlayerProps {
@@ -10,9 +11,11 @@ interface VideoPlayerProps {
   onSwipeLeft?: () => void;  // Next channel
   onSwipeRight?: () => void; // Previous channel
   onReportDead?: (channel: Channel, error: string) => void;
+  onAskAI?: () => void;      // Open Ask AI panel
+  hasAIContext?: boolean;    // Whether we have program info for AI
 }
 
-export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwipeRight, onReportDead }: VideoPlayerProps) {
+export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwipeRight, onReportDead, onAskAI, hasAIContext }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -493,6 +496,21 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
 
               {/* Right Controls */}
               <div className="flex items-center gap-2">
+                {/* Ask AI button */}
+                {onAskAI && (
+                  <button
+                    onClick={onAskAI}
+                    className="w-11 h-11 md:w-10 md:h-10 glass rounded-lg flex items-center justify-center
+                               hover:bg-white/10 active:bg-white/20 transition-all touch-manipulation
+                               group relative"
+                    title="Ask AI about this content"
+                  >
+                    <Sparkles className="w-5 h-5 text-violet-400 group-hover:text-violet-300" />
+                    {hasAIContext && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-violet-500 rounded-full" />
+                    )}
+                  </button>
+                )}
                 {/* Mute button on mobile */}
                 <button
                   onClick={toggleMute}

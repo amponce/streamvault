@@ -57,7 +57,8 @@ import {
   filterValidChannels,
   stopValidation,
 } from '@/lib/streamValidator';
-import { fetchPlutoChannels, plutoToAppChannel, clearPlutoCache } from '@/lib/plutoTV';
+import { fetchPlutoChannels, plutoToAppChannel, clearPlutoCache, PlutoChannel } from '@/lib/plutoTV';
+import { AskAI } from './AskAI';
 import {
   importFromIptvOrg,
   IptvOrgImportOptions,
@@ -128,7 +129,9 @@ export default function IPTVPlayer() {
   const [showDeadChannels, setShowDeadChannels] = useState(false);
   const [hideInvalidChannels, setHideInvalidChannels] = useState(true);
   const [plutoChannels, setPlutoChannels] = useState<Channel[]>([]);
+  const [rawPlutoChannels, setRawPlutoChannels] = useState<PlutoChannel[]>([]); // Store raw Pluto data with program info
   const [plutoLoading, setPlutoLoading] = useState(false);
+  const [showAskAI, setShowAskAI] = useState(false);
   const [aiChatInput, setAiChatInput] = useState('');
   const [aiChatLoading, setAiChatLoading] = useState(false);
   const [aiChatResponse, setAiChatResponse] = useState<{
@@ -197,6 +200,7 @@ export default function IPTVPlayer() {
       setPlutoLoading(true);
       try {
         const pluto = await fetchPlutoChannels();
+        setRawPlutoChannels(pluto); // Store raw data with program info for Ask AI
         const converted = pluto.map((ch, idx) => plutoToAppChannel(ch, 500 + idx));
         setPlutoChannels(converted);
         console.log(`Loaded ${converted.length} Pluto TV channels with fresh URLs`);
@@ -342,6 +346,32 @@ export default function IPTVPlayer() {
       playChannel(allAvailableChannels[prevIndex]);
     }
   }, [selectedChannel, allAvailableChannels, playChannel]);
+
+  // Get program info for Ask AI feature
+  const getAIProgramInfo = useCallback(() => {
+    if (!selectedChannel) return { programTitle: undefined, programDescription: undefined, isPlutoChannel: false };
+
+    // Check if this is a Pluto channel with program info
+    const isPluto = selectedChannel.id.startsWith('pluto-');
+    if (isPluto) {
+      const rawPluto = rawPlutoChannels.find(p => `pluto-${p.id}` === selectedChannel.id || `pluto-${p.slug}` === selectedChannel.id);
+      if (rawPluto?.currentProgram) {
+        return {
+          programTitle: rawPluto.currentProgram.title,
+          programDescription: rawPluto.currentProgram.description,
+          isPlutoChannel: true,
+        };
+      }
+    }
+
+    // For non-Pluto channels, use the mock schedule data as a hint
+    // The AI will acknowledge this is limited info
+    return {
+      programTitle: currentProgram?.title,
+      programDescription: currentProgram?.description,
+      isPlutoChannel: false,
+    };
+  }, [selectedChannel, rawPlutoChannels, currentProgram]);
 
   // Handle user-reported dead links
   const handleReportDead = useCallback((channel: Channel, error: string) => {
@@ -1103,6 +1133,8 @@ export default function IPTVPlayer() {
                 onSwipeLeft={nextChannel}
                 onSwipeRight={prevChannel}
                 onReportDead={handleReportDead}
+                onAskAI={() => setShowAskAI(true)}
+                hasAIContext={selectedChannel.id.startsWith('pluto-') || !!currentProgram}
               />
               {/* Now Playing Overlay - Auto-hides, Mobile Friendly */}
               <div
@@ -1922,6 +1954,22 @@ export default function IPTVPlayer() {
           onClose={() => setShowFavoritesManager(false)}
         />
       )}
+
+      {/* Ask AI Panel */}
+      {selectedChannel && (() => {
+        const programInfo = getAIProgramInfo();
+        return (
+          <AskAI
+            channelName={selectedChannel.name}
+            channelCategory={selectedChannel.category}
+            programTitle={programInfo.programTitle}
+            programDescription={programInfo.programDescription}
+            isPlutoChannel={programInfo.isPlutoChannel}
+            isVisible={showAskAI}
+            onClose={() => setShowAskAI(false)}
+          />
+        );
+      })()}
     </div>
   );
 }
