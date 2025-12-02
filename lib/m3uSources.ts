@@ -43,33 +43,33 @@ export const popularM3USources: M3USource[] = [
     category: 'all',
   },
 
-  // === HORROR & THRILLER ===
+  // === HORROR & THRILLER (Single streams - import as channels) ===
   {
-    name: 'Pluto TV Horror',
+    name: 'Pluto TV Horror (Stream)',
     url: 'http://service-stitcher.clusters.pluto.tv/stitch/hls/channel/569546031a619b8f07ce6e25/master.m3u8',
-    description: '24/7 Horror movies - never ending fright-fest',
+    description: '24/7 Horror movies - single channel stream',
     category: 'horror',
   },
   {
-    name: 'Pluto TV Terror',
+    name: 'Pluto TV Terror (Stream)',
     url: 'http://service-stitcher.clusters.pluto.tv/stitch/hls/channel/5c6dc88fcd232425a6e0f06e/master.m3u8',
     description: 'Extreme horror - scariest, goriest movies',
     category: 'horror',
   },
   {
-    name: 'Pluto TV Thrillers',
+    name: 'Pluto TV Thrillers (Stream)',
     url: 'http://service-stitcher.clusters.pluto.tv/stitch/hls/channel/5dcddf1ed95e740009fef7ab/master.m3u8',
     description: 'Suspense and thriller movies 24/7',
     category: 'movies',
   },
   {
-    name: 'The Asylum',
+    name: 'The Asylum (Stream)',
     url: 'http://service-stitcher.clusters.pluto.tv/stitch/hls/channel/5812b7d3249444e05d09cc4b/master.m3u8',
     description: 'B-movies, creature features, mockbusters',
     category: 'horror',
   },
   {
-    name: 'Pluto TV Cult Films',
+    name: 'Pluto TV Cult Films (Stream)',
     url: 'http://service-stitcher.clusters.pluto.tv/stitch/hls/channel/5f4d830c692b41000759fa12/master.m3u8',
     description: 'Cult classic movies 24/7',
     category: 'movies',

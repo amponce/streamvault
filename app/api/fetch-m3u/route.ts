@@ -39,8 +39,35 @@ export async function GET(request: NextRequest) {
 
     const content = await response.text();
 
+    // Check if it's an M3U playlist or a direct HLS stream
+    const isM3UPlaylist = content.includes('#EXTM3U') || content.includes('#EXTINF');
+    const isHLSStream = content.includes('#EXT-X-VERSION') || content.includes('#EXT-X-TARGETDURATION') || content.includes('#EXT-X-STREAM-INF');
+
+    // If it's a direct HLS stream (not a playlist), wrap it as a single-channel M3U
+    if (isHLSStream && !isM3UPlaylist) {
+      // Extract a name from the URL
+      const urlObj = new URL(decodedUrl);
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      const channelId = pathParts.find(p => p.length === 24) || pathParts[pathParts.length - 2] || 'stream';
+      const name = channelId.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+      // Create a wrapper M3U playlist
+      const wrappedContent = `#EXTM3U
+#EXTINF:-1 tvg-id="${channelId}" tvg-name="${name}" group-title="Imported",${name}
+${decodedUrl}
+`;
+      return new NextResponse(wrappedContent, {
+        headers: {
+          'Content-Type': 'audio/x-mpegurl',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Cache-Control': 'max-age=300',
+        },
+      });
+    }
+
     // Validate it looks like an M3U file
-    if (!content.includes('#EXTM3U') && !content.includes('#EXTINF')) {
+    if (!isM3UPlaylist) {
       return NextResponse.json(
         { error: 'Response does not appear to be a valid M3U playlist' },
         { status: 400 }
