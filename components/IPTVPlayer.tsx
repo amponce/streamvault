@@ -652,14 +652,14 @@ export default function IPTVPlayer() {
         <div className="p-4 md:p-6 border-b border-white/5">
           {/* Logo and Close Button */}
           <div className="flex items-center justify-between mb-4 md:mb-6">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center">
               <img
                 src="/skull.png"
                 alt="ShowStreams"
-                className="w-20 h-20 object-contain"
+                className="w-20 h-20 object-contain -mr-3"
               />
               <div>
-                <span className="text-xl font-bold text-red-500">Show Streams</span>
+                <span className="text-xl font-bold text-red-500">SHOWSTREAMS</span>
                 <p className="text-xs text-white/40">{timeRecs.greeting}</p>
               </div>
             </div>
