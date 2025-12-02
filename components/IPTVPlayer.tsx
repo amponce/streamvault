@@ -1110,7 +1110,7 @@ export default function IPTVPlayer() {
                 alt="ShowStreams"
                 className="w-56 h-56 md:w-80 md:h-80 object-contain"
               />
-              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 px-4 -mt-11 md:-mt-12">
+              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 px-4 -mt-6">
                 Select a channel from the guide or let AI find something perfect for you.
               </p>
               <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-xs md:max-w-none md:w-auto">
