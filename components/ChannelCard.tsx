@@ -44,8 +44,18 @@ function ChannelCardComponent({
           <div className="font-medium text-sm truncate flex items-center gap-1.5">
             {channel.name}
             {channel.id.startsWith('pluto-') && (
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-cyan-500 to-blue-500 rounded text-white">
+              <span className="service-badge service-badge-pluto">
                 PLUTO
+              </span>
+            )}
+            {channel.id.startsWith('youtube-') && (
+              <span className="service-badge service-badge-youtube">
+                YT
+              </span>
+            )}
+            {channel.id.startsWith('iptv-') && (
+              <span className="service-badge service-badge-iptv">
+                IPTV
               </span>
             )}
           </div>

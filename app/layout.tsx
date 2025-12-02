@@ -53,7 +53,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#8b5cf6",
+  themeColor: "#db0000",
 };
 
 export default function RootLayout({
@@ -68,7 +68,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={`${inter.className} antialiased bg-[#0a0a0f] overflow-hidden`}>
+      <body className={`${inter.className} antialiased bg-[#0a0a0a] overflow-hidden`}>
         <ServiceWorkerRegistration />
         {children}
       </body>
