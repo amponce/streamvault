@@ -656,7 +656,7 @@ export default function IPTVPlayer() {
               <img
                 src="/skull.png"
                 alt="ShowStreams"
-                className="w-20 h-20 object-contain -mr-3"
+                className="w-20 h-20 object-contain -mr-8"
               />
               <div>
                 <span className="text-xl font-bold text-red-500">SHOWSTREAMS</span>
