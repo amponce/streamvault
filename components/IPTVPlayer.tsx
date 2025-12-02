@@ -653,11 +653,20 @@ export default function IPTVPlayer() {
           {/* Logo and Close Button */}
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/30">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#db0000] to-[#831010] flex items-center justify-center shadow-lg shadow-red-500/30 relative overflow-hidden">
+                {/* Netflix-style S ribbon logo */}
+                <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none">
+                  <defs>
+                    <linearGradient id="sGradSidebar" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#fff" stopOpacity="1"/>
+                      <stop offset="100%" stopColor="#fff" stopOpacity="0.8"/>
+                    </linearGradient>
+                  </defs>
+                  {/* Stylized S as two angled ribbons */}
+                  <path d="M10 6h4v12l8-12h4v4l-8 10h-4V10l-4 6z" fill="url(#sGradSidebar)"/>
+                  <path d="M18 14h4v12h-4v-6l-8 6h-4v-4l8-6z" fill="url(#sGradSidebar)" fillOpacity="0.9"/>
                 </svg>
+                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/10" />
               </div>
               <div>
                 <h1 className="text-xl font-bold gradient-text">Show Streams</h1>
@@ -1114,11 +1123,20 @@ export default function IPTVPlayer() {
           ) : (
             /* Welcome Screen - Mobile Friendly */
             <div className="w-full h-full flex flex-col items-center justify-center px-4 md:px-8">
-              <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-3xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center mb-4 md:mb-8 shadow-2xl shadow-violet-500/30">
-                <svg className="w-8 h-8 md:w-12 md:h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-3xl bg-gradient-to-br from-[#db0000] to-[#831010] flex items-center justify-center mb-4 md:mb-8 shadow-2xl shadow-red-500/40 relative overflow-hidden">
+                {/* Netflix-style S ribbon logo */}
+                <svg className="w-10 h-10 md:w-14 md:h-14" viewBox="0 0 32 32" fill="none">
+                  <defs>
+                    <linearGradient id="sGradWelcome" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#fff" stopOpacity="1"/>
+                      <stop offset="100%" stopColor="#fff" stopOpacity="0.85"/>
+                    </linearGradient>
+                  </defs>
+                  {/* Stylized S as two angled ribbons */}
+                  <path d="M10 6h4v12l8-12h4v4l-8 10h-4V10l-4 6z" fill="url(#sGradWelcome)"/>
+                  <path d="M18 14h4v12h-4v-6l-8 6h-4v-4l8-6z" fill="url(#sGradWelcome)" fillOpacity="0.9"/>
                 </svg>
+                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/10" />
               </div>
               <h1 className="text-2xl md:text-4xl font-bold gradient-text mb-2 md:mb-4">Show Streams</h1>
               <p className="text-white/40 text-center text-sm md:text-base max-w-md mb-6 md:mb-8 px-4">
