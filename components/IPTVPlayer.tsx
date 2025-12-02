@@ -733,48 +733,38 @@ export default function IPTVPlayer() {
           </div>
         </div>
 
-        {/* Category Pills */}
+        {/* Category Dropdown */}
         {viewMode === 'browse' && (
           <div className="px-4 py-3 border-b border-white/5">
-            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              {categories
-                .filter(cat => {
-                  if (cat === 'Favorites' || cat === 'All') return true;
-                  if (contentFilter === 'movies') return movieCategories.has(cat);
-                  if (contentFilter === 'tv') return tvCategories.has(cat);
-                  return true;
-                })
-                .map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                    selectedCategory === cat
-                      ? 'category-pill-active text-white'
-                      : 'category-pill text-white/60 hover:text-white'
-                  }`}
-                >
-                  <span>{CATEGORY_ICONS[cat]}</span>
-                  <span>{cat}</span>
-                  {cat === 'Favorites' && favoriteIds.size > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 text-[10px] bg-red-500/80 rounded-full">
-                      {favoriteIds.size}
-                    </span>
-                  )}
-                  {cat === 'Imported' && importedChannels.length > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 text-[10px] bg-cyan-500/80 rounded-full">
-                      {importedChannels.length}
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value as Category)}
+                className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-medium appearance-none cursor-pointer focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
+              >
+                {categories
+                  .filter(cat => {
+                    if (cat === 'Favorites' || cat === 'All') return true;
+                    if (contentFilter === 'movies') return movieCategories.has(cat);
+                    if (contentFilter === 'tv') return tvCategories.has(cat);
+                    return true;
+                  })
+                  .map(cat => (
+                    <option key={cat} value={cat} className="bg-[#1a1a1a] text-white">
+                      {CATEGORY_ICONS[cat]} {cat}
+                      {cat === 'Favorites' && favoriteIds.size > 0 ? ` (${favoriteIds.size})` : ''}
+                      {cat === 'Imported' && importedChannels.length > 0 ? ` (${importedChannels.length})` : ''}
+                    </option>
+                  ))}
+              </select>
               {/* Favorites Manager Button */}
               <button
                 onClick={() => setShowFavoritesManager(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all category-pill text-white/60 hover:text-white"
+                className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-red-500/50 transition-all"
                 title="Manage Favorites"
               >
-                <Settings size={14} />
+                <Settings size={18} />
               </button>
             </div>
           </div>

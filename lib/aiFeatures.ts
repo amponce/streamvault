@@ -344,12 +344,12 @@ export const categoryIcons: Record<string, string> = {
  * Category colors for visual distinction
  */
 export const categoryColors: Record<string, string> = {
-  All: 'from-neutral-600 to-neutral-800',
+  All: 'from-red-600 to-red-800',
   Local: 'from-blue-600 to-blue-800',
   News: 'from-red-600 to-red-800',
   Sports: 'from-green-600 to-emerald-700',
-  Entertainment: 'from-purple-600 to-purple-800',
-  Movies: 'from-amber-600 to-amber-800',
+  Entertainment: 'from-red-600 to-red-800',
+  Movies: 'from-red-600 to-red-800',
   Music: 'from-pink-600 to-pink-800',
   Kids: 'from-cyan-500 to-cyan-700',
   Documentary: 'from-teal-600 to-teal-800',
