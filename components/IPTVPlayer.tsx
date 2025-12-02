@@ -652,16 +652,13 @@ export default function IPTVPlayer() {
         <div className="p-4 md:p-6 border-b border-white/5">
           {/* Logo and Close Button */}
           <div className="flex items-center justify-between mb-4 md:mb-6">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <img
                 src="/image.png"
                 alt="ShowStreams"
-                className="w-10 h-10 object-contain"
+                className="w-8 h-8 object-contain"
               />
-              <div>
-                <h1 className="text-xl font-bold gradient-text">Show Streams</h1>
-                <p className="text-xs text-white/40">{timeRecs.greeting}</p>
-              </div>
+              <span className="text-lg font-bold text-white">ShowStreams</span>
             </div>
             {/* Close button - only on mobile */}
             {isMobile && (
@@ -1116,11 +1113,10 @@ export default function IPTVPlayer() {
               <img
                 src="/image.png"
                 alt="ShowStreams"
-                className="w-24 h-24 md:w-36 md:h-36 object-contain mb-4 md:mb-6"
+                className="w-48 h-48 md:w-72 md:h-72 object-contain mb-6 md:mb-8"
               />
-              <h1 className="text-2xl md:text-4xl font-bold gradient-text mb-2 md:mb-4">Show Streams</h1>
-              <p className="text-white/40 text-center text-sm md:text-base max-w-md mb-6 md:mb-8 px-4">
-                {timeRecs.greeting}! Select a channel from the guide or let AI find something perfect for you.
+              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 md:mb-8 px-4">
+                Select a channel from the guide or let AI find something perfect for you.
               </p>
               <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-xs md:max-w-none md:w-auto">
                 <button
