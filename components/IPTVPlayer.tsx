@@ -653,21 +653,11 @@ export default function IPTVPlayer() {
           {/* Logo and Close Button */}
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#db0000] to-[#831010] flex items-center justify-center shadow-lg shadow-red-500/30 relative overflow-hidden">
-                {/* Netflix-style S ribbon logo */}
-                <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none">
-                  <defs>
-                    <linearGradient id="sGradSidebar" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#fff" stopOpacity="1"/>
-                      <stop offset="100%" stopColor="#fff" stopOpacity="0.8"/>
-                    </linearGradient>
-                  </defs>
-                  {/* Stylized S as two angled ribbons */}
-                  <path d="M10 6h4v12l8-12h4v4l-8 10h-4V10l-4 6z" fill="url(#sGradSidebar)"/>
-                  <path d="M18 14h4v12h-4v-6l-8 6h-4v-4l8-6z" fill="url(#sGradSidebar)" fillOpacity="0.9"/>
-                </svg>
-                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/10" />
-              </div>
+              <img
+                src="/image.png"
+                alt="ShowStreams"
+                className="w-10 h-10 object-contain"
+              />
               <div>
                 <h1 className="text-xl font-bold gradient-text">Show Streams</h1>
                 <p className="text-xs text-white/40">{timeRecs.greeting}</p>
@@ -1123,21 +1113,11 @@ export default function IPTVPlayer() {
           ) : (
             /* Welcome Screen - Mobile Friendly */
             <div className="w-full h-full flex flex-col items-center justify-center px-4 md:px-8">
-              <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-3xl bg-gradient-to-br from-[#db0000] to-[#831010] flex items-center justify-center mb-4 md:mb-8 shadow-2xl shadow-red-500/40 relative overflow-hidden">
-                {/* Netflix-style S ribbon logo */}
-                <svg className="w-10 h-10 md:w-14 md:h-14" viewBox="0 0 32 32" fill="none">
-                  <defs>
-                    <linearGradient id="sGradWelcome" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#fff" stopOpacity="1"/>
-                      <stop offset="100%" stopColor="#fff" stopOpacity="0.85"/>
-                    </linearGradient>
-                  </defs>
-                  {/* Stylized S as two angled ribbons */}
-                  <path d="M10 6h4v12l8-12h4v4l-8 10h-4V10l-4 6z" fill="url(#sGradWelcome)"/>
-                  <path d="M18 14h4v12h-4v-6l-8 6h-4v-4l8-6z" fill="url(#sGradWelcome)" fillOpacity="0.9"/>
-                </svg>
-                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/10" />
-              </div>
+              <img
+                src="/image.png"
+                alt="ShowStreams"
+                className="w-24 h-24 md:w-36 md:h-36 object-contain mb-4 md:mb-6"
+              />
               <h1 className="text-2xl md:text-4xl font-bold gradient-text mb-2 md:mb-4">Show Streams</h1>
               <p className="text-white/40 text-center text-sm md:text-base max-w-md mb-6 md:mb-8 px-4">
                 {timeRecs.greeting}! Select a channel from the guide or let AI find something perfect for you.
