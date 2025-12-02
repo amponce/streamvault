@@ -210,44 +210,8 @@ export default function IPTVPlayer() {
     loadData();
   }, []);
 
-  // Run background stream validation
-  useEffect(() => {
-    if (isLoading || plutoLoading) return;
-
-    const allAvailable = [...allChannels, ...importedChannels, ...plutoChannels];
-
-    // Start validation in background
-    validateChannels(allAvailable, (progress) => {
-      setValidationProgress(progress);
-    }).then((results) => {
-      setValidationResults(results);
-
-      // Log dead channels for cleanup
-      const deadChannels = Array.from(results.entries())
-        .filter(([, result]) => !result.isValid)
-        .map(([id, result]) => {
-          const channel = allAvailable.find(ch => ch.id === id);
-          return {
-            id,
-            name: channel?.name || 'Unknown',
-            url: channel?.url || 'Unknown',
-            error: result.error,
-          };
-        });
-
-      if (deadChannels.length > 0) {
-        console.group('🔴 Dead Channels Report');
-        console.log(`Found ${deadChannels.length} dead/invalid streams:`);
-        console.table(deadChannels);
-        console.log('Dead channel IDs:', deadChannels.map(ch => ch.id));
-        console.groupEnd();
-      }
-    });
-
-    return () => {
-      stopValidation();
-    };
-  }, [isLoading, plutoLoading, importedChannels, plutoChannels]);
+  // Stream validation disabled to reduce network requests (was making 100+ requests per page load)
+  // Users can trigger validation manually if needed
 
   // Filter channels (including imported and Pluto)
   useEffect(() => {
@@ -825,24 +789,31 @@ export default function IPTVPlayer() {
               <p className="text-sm text-white/40">Loading channels...</p>
             </div>
           ) : viewMode === 'browse' ? (
-            /* Channel List */
+            /* Channel List - Limited on mobile for performance */
             <div className="space-y-2">
               {displayedChannels.length === 0 ? (
                 <div className="text-center py-12 text-white/40">
                   <p className="text-sm">No channels found</p>
                 </div>
               ) : (
-                displayedChannels.map((channel, index) => (
+                (isMobile ? displayedChannels.slice(0, 50) : displayedChannels).map((channel, index) => (
                   <ChannelCard
                     key={channel.id}
                     channel={channel}
                     isSelected={selectedChannel?.id === channel.id}
                     isFavorite={isFavorite(channel.id)}
-                    animationDelay={index * 30}
+                    animationDelay={isMobile ? 0 : index * 30}
                     onPlay={() => playChannel(channel)}
                     onToggleFavorite={() => toggleFavorite(channel)}
                   />
                 ))
+              )}
+              {isMobile && displayedChannels.length > 50 && (
+                <div className="text-center py-4">
+                  <p className="text-xs text-white/40">
+                    Showing 50 of {displayedChannels.length} channels. Use search to find more.
+                  </p>
+                </div>
               )}
             </div>
           ) : viewMode === 'schedule' ? (

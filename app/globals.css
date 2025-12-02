@@ -415,6 +415,21 @@ button, .no-select {
     width: 4px;
   }
 
+  /* Reduce backdrop-blur on mobile for better performance */
+  .glass,
+  .glass-card,
+  .glass-dark,
+  .glass-button,
+  .glass-input {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Disable fade-in animations on channel cards for performance */
+  .channel-card.fade-in {
+    animation: none;
+  }
+
   /* Disable hover effects on touch devices */
   @media (hover: none) {
     .channel-card:hover {
