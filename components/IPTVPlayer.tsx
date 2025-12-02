@@ -652,13 +652,16 @@ export default function IPTVPlayer() {
         <div className="p-4 md:p-6 border-b border-white/5">
           {/* Logo and Close Button */}
           <div className="flex items-center justify-between mb-4 md:mb-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <img
                 src="/skull.png"
                 alt="ShowStreams"
-                className="w-8 h-8 object-contain"
+                className="w-12 h-12 object-contain"
               />
-              <span className="text-lg font-bold text-white">ShowStreams</span>
+              <div>
+                <span className="text-xl font-bold text-red-500">Show Streams</span>
+                <p className="text-xs text-white/40">{timeRecs.greeting}</p>
+              </div>
             </div>
             {/* Close button - only on mobile */}
             {isMobile && (
@@ -1113,9 +1116,9 @@ export default function IPTVPlayer() {
               <img
                 src="/image.png"
                 alt="ShowStreams"
-                className="w-48 h-48 md:w-72 md:h-72 object-contain mb-4"
+                className="w-56 h-56 md:w-80 md:h-80 object-contain"
               />
-              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 px-4">
+              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 px-4 -mt-2">
                 Select a channel from the guide or let AI find something perfect for you.
               </p>
               <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-xs md:max-w-none md:w-auto">
