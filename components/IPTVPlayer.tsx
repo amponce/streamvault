@@ -15,7 +15,7 @@ import {
   getChannelsByMood,
   loadUserPreferences,
 } from '@/lib/aiFeatures';
-import { Send, Loader2, Sparkles, Heart, Settings } from 'lucide-react';
+import { Send, Loader2, Sparkles, Heart, Settings, ChevronDown, Film, Tv, LayoutGrid } from 'lucide-react';
 import {
   CATEGORY_ICONS,
   MOOD_ICONS,
@@ -138,6 +138,7 @@ export default function IPTVPlayer() {
   const watchStartTime = useRef<number>(0);
   const overlayTimer = useRef<NodeJS.Timeout | null>(null);
   const [showFavoritesManager, setShowFavoritesManager] = useState(false);
+  const [showContentFilterDropdown, setShowContentFilterDropdown] = useState(false);
 
   // Favorites hook
   const {
@@ -691,20 +692,47 @@ export default function IPTVPlayer() {
           </div>
 
           {/* Content Type Filter Dropdown */}
-          <div className="mb-3">
-            <select
-              value={contentFilter}
-              onChange={(e) => {
-                setContentFilter(e.target.value as ContentFilter);
-                setSelectedCategory('All');
-              }}
-              className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-medium appearance-none cursor-pointer focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
+          <div className="mb-3 relative">
+            <button
+              onClick={() => setShowContentFilterDropdown(!showContentFilterDropdown)}
+              className="w-full px-4 py-2.5 rounded-xl glass-card border border-white/10 text-white text-sm font-medium cursor-pointer flex items-center justify-between hover:border-red-500/30 transition-all"
             >
-              <option value="all" className="bg-[#1a1a1a] text-white">All Content</option>
-              <option value="movies" className="bg-[#1a1a1a] text-white">Movies</option>
-              <option value="tv" className="bg-[#1a1a1a] text-white">TV Shows</option>
-            </select>
+              <div className="flex items-center gap-2">
+                {contentFilter === 'all' && <LayoutGrid size={16} className="text-red-500" />}
+                {contentFilter === 'movies' && <Film size={16} className="text-red-500" />}
+                {contentFilter === 'tv' && <Tv size={16} className="text-red-500" />}
+                <span>
+                  {contentFilter === 'all' ? 'All Content' : contentFilter === 'movies' ? 'Movies' : 'TV Shows'}
+                </span>
+              </div>
+              <ChevronDown size={16} className={`text-white/50 transition-transform ${showContentFilterDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            {showContentFilterDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 py-1 rounded-xl glass-card border border-white/10 z-50 overflow-hidden">
+                {[
+                  { value: 'all', label: 'All Content', icon: <LayoutGrid size={16} /> },
+                  { value: 'movies', label: 'Movies', icon: <Film size={16} /> },
+                  { value: 'tv', label: 'TV Shows', icon: <Tv size={16} /> },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      setContentFilter(option.value as ContentFilter);
+                      setSelectedCategory('All');
+                      setShowContentFilterDropdown(false);
+                    }}
+                    className={`w-full px-4 py-2.5 flex items-center gap-2 text-sm transition-all ${
+                      contentFilter === option.value
+                        ? 'bg-red-500/20 text-red-400'
+                        : 'text-white/70 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <span className={contentFilter === option.value ? 'text-red-500' : 'text-white/50'}>{option.icon}</span>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* View Mode Tabs */}
@@ -731,7 +759,7 @@ export default function IPTVPlayer() {
             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
               {categories
                 .filter(cat => {
-                  if (cat === 'Favorites' || cat === 'All') return true;
+                  if (cat === 'Favorites' || cat === 'All' || cat === 'Imported') return true;
                   if (contentFilter === 'movies') return movieCategories.has(cat);
                   if (contentFilter === 'tv') return tvCategories.has(cat);
                   return true;
@@ -1110,7 +1138,7 @@ export default function IPTVPlayer() {
                 alt="ShowStreams"
                 className="w-56 h-56 md:w-80 md:h-80 object-contain"
               />
-              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 px-4 -mt-6">
+              <p className="text-white/50 text-center text-sm md:text-base max-w-md mb-6 px-4 -mt-8">
                 Select a channel from the guide or let AI find something perfect for you.
               </p>
               <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-xs md:max-w-none md:w-auto">
