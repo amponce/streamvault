@@ -168,8 +168,9 @@ export function AskAI({
     return (
       <button
         onClick={() => setIsMinimized(false)}
-        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 px-3 py-2 glass rounded-full
-                   hover:bg-white/10 transition-all animate-fade-in shadow-lg"
+        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 px-3 py-2
+                   bg-black/90 backdrop-blur-xl border border-white/10 rounded-full
+                   hover:bg-black/95 transition-all animate-fade-in shadow-2xl"
       >
         <Sparkles className="w-4 h-4 text-violet-400" />
         <span className="text-xs text-white/70">AI Chat</span>
@@ -183,7 +184,7 @@ export function AskAI({
       ref={panelRef}
       className="fixed bottom-0 right-0 z-50 w-full sm:w-96 max-h-[60vh] sm:max-h-[50vh]
                  sm:bottom-4 sm:right-4 sm:rounded-2xl overflow-hidden
-                 glass border-t sm:border border-white/10 shadow-2xl animate-slide-up
+                 bg-black/95 backdrop-blur-xl border-t sm:border border-white/10 shadow-2xl animate-slide-up
                  flex flex-col"
     >
       {/* Header */}
@@ -241,8 +242,8 @@ export function AskAI({
                 <button
                   key={q}
                   onClick={() => handleQuickQuestion(q)}
-                  className="px-3 py-1.5 text-xs rounded-full glass hover:bg-white/10
-                             text-white/70 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-full bg-white/10 border border-white/10
+                             hover:bg-white/20 text-white/80 transition-colors"
                 >
                   {q}
                 </button>
