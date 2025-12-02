@@ -7,6 +7,9 @@ import { v1 as uuidv1, v4 as uuidv4 } from 'uuid';
  * Uses api.pluto.tv/v2/channels with proper UUID generation
  */
 
+// Enable edge caching - revalidate every 30 minutes
+export const revalidate = 1800;
+
 interface PlutoChannel {
   _id: string;
   slug: string;
@@ -165,6 +168,11 @@ export async function GET() {
         deviceId,
         sid,
         generatedAt: new Date().toISOString(),
+      }
+    }, {
+      headers: {
+        // Cache at edge for 30 min, allow stale for 1 hour while revalidating
+        'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600',
       }
     });
 
