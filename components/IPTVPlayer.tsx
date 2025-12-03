@@ -366,7 +366,7 @@ export default function IPTVPlayer() {
 
   // Get program info for Ask AI feature
   const getAIProgramInfo = useCallback(() => {
-    if (!selectedChannel) return { programTitle: undefined, programDescription: undefined, isPlutoChannel: false };
+    if (!selectedChannel) return { programTitle: undefined, programDescription: undefined, isPlutoChannel: false, isYouTube: false };
 
     // Check if this is a Pluto channel with program info
     const isPluto = selectedChannel.id.startsWith('pluto-');
@@ -377,16 +377,28 @@ export default function IPTVPlayer() {
           programTitle: rawPluto.currentProgram.title,
           programDescription: rawPluto.currentProgram.description,
           isPlutoChannel: true,
+          isYouTube: false,
         };
       }
     }
 
-    // For non-Pluto channels, use the mock schedule data as a hint
-    // The AI will acknowledge this is limited info
+    // Check if this is a YouTube channel - use channel name as title (contains movie/show info)
+    const isYouTube = selectedChannel.url.includes('youtube.com') || selectedChannel.url.includes('youtu.be');
+    if (isYouTube) {
+      return {
+        programTitle: selectedChannel.name,
+        programDescription: `YouTube video in ${selectedChannel.category} category`,
+        isPlutoChannel: false,
+        isYouTube: true,
+      };
+    }
+
+    // For other channels, return basic info
     return {
       programTitle: currentProgram?.title,
       programDescription: currentProgram?.description,
       isPlutoChannel: false,
+      isYouTube: false,
     };
   }, [selectedChannel, rawPlutoChannels, currentProgram]);
 
@@ -1185,6 +1197,7 @@ export default function IPTVPlayer() {
                   channel={selectedChannel}
                   onSwipeLeft={nextChannel}
                   onSwipeRight={prevChannel}
+                  onAskAI={() => setShowAskAI(true)}
                 />
               ) : (
                 <VideoPlayer
@@ -1193,7 +1206,7 @@ export default function IPTVPlayer() {
                   onSwipeLeft={nextChannel}
                   onSwipeRight={prevChannel}
                   onReportDead={handleReportDead}
-                  onAskAI={() => setShowAskAI(true)}
+                  onAskAI={selectedChannel.id.startsWith('pluto-') ? () => setShowAskAI(true) : undefined}
                   hasAIContext={selectedChannel.id.startsWith('pluto-') || !!currentProgram}
                 />
               )}

@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { Sparkles } from 'lucide-react';
 import { Channel } from '@/lib/channels';
 
 interface YouTubePlayerProps {
   channel: Channel;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
+  onAskAI?: () => void;
 }
 
-export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: YouTubePlayerProps) {
+export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight, onAskAI }: YouTubePlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Swipe gesture tracking
@@ -97,6 +99,20 @@ export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: Yo
         allowFullScreen
         title={channel.name}
       />
+
+      {/* Ask AI button - floating in corner */}
+      {onAskAI && (
+        <button
+          onClick={onAskAI}
+          className="absolute bottom-4 right-4 w-11 h-11 md:w-10 md:h-10 glass rounded-lg flex items-center justify-center
+                     hover:bg-white/10 active:bg-white/20 transition-all touch-manipulation
+                     group z-10"
+          title="Ask AI about this content"
+        >
+          <Sparkles className="w-5 h-5 text-violet-400 group-hover:text-violet-300" />
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-violet-500 rounded-full" />
+        </button>
+      )}
     </div>
   );
 }
