@@ -139,7 +139,7 @@ export function GalleryOverlay({
                   setShowGenreDropdown(!showGenreDropdown);
                   setShowSourceDropdown(false);
                 }}
-                className="flex items-center gap-2 px-3 py-2 glass rounded-lg hover:bg-white/10 transition-colors text-sm"
+                className="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-sm"
               >
                 <Tag size={16} className="text-purple-400" />
                 <span className="text-white/80">
@@ -154,7 +154,7 @@ export function GalleryOverlay({
               </button>
 
               {showGenreDropdown && (
-                <div className="absolute top-full right-0 mt-1 w-56 py-1 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/20 z-50 overflow-hidden shadow-2xl max-h-80 overflow-y-auto">
+                <div className="absolute top-full right-0 mt-1 w-56 py-1 rounded-xl bg-gray-900 border border-white/20 z-50 overflow-hidden shadow-2xl max-h-80 overflow-y-auto">
                   <button
                     onClick={() => {
                       setSelectedGenre('all');
@@ -218,7 +218,7 @@ export function GalleryOverlay({
               </button>
 
               {showSourceDropdown && (
-                <div className="absolute top-full right-0 mt-1 w-56 py-1 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/20 z-50 overflow-hidden shadow-2xl">
+                <div className="absolute top-full right-0 mt-1 w-56 py-1 rounded-xl bg-gray-900 border border-white/20 z-50 overflow-hidden shadow-2xl">
                   <button
                     onClick={() => {
                       setSelectedSource('all');

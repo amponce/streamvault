@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Youtube, Plus, Trash2, Play, Download, Loader2, AlertCircle, Check, Copy, RefreshCw } from 'lucide-react';
 import { Channel } from '@/lib/channels';
+import { mapGroupToCategory } from '@/lib/channelUtils';
 
 interface YouTubeChannel {
   id: string;
@@ -145,7 +146,7 @@ export function YouTubeManager({ onAddChannel, onPlayChannel }: YouTubeManagerPr
       id: channel.id,
       number: 800 + Math.floor(Math.random() * 100),
       name: channel.name,
-      category: 'Entertainment',
+      category: mapGroupToCategory(channel.name),
       url: channel.hlsUrl,
     };
 
@@ -159,7 +160,7 @@ export function YouTubeManager({ onAddChannel, onPlayChannel }: YouTubeManagerPr
       id: channel.id,
       number: 800 + Math.floor(Math.random() * 100),
       name: channel.name,
-      category: 'Entertainment',
+      category: mapGroupToCategory(channel.name),
       url: channel.hlsUrl,
     };
 
@@ -175,7 +176,8 @@ export function YouTubeManager({ onAddChannel, onPlayChannel }: YouTubeManagerPr
     m3u += `# Generated: ${new Date().toISOString()}\n\n`;
 
     liveChannels.forEach(ch => {
-      m3u += `#EXTINF:-1 tvg-id="${ch.videoId}" tvg-name="${ch.name}" tvg-logo="${ch.thumbnail}" group-title="YouTube Live",${ch.name}\n`;
+      const category = mapGroupToCategory(ch.name);
+      m3u += `#EXTINF:-1 tvg-id="${ch.videoId}" tvg-name="${ch.name}" tvg-logo="${ch.thumbnail}" group-title="${category}",${ch.name}\n`;
       m3u += `${ch.hlsUrl}\n`;
     });
 

@@ -173,10 +173,6 @@ export default function IPTVPlayer() {
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
-      // On desktop, default to sidebar open
-      if (window.innerWidth >= 768) {
-        setSidebarOpen(true);
-      }
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -327,11 +323,9 @@ export default function IPTVPlayer() {
     }
     setSelectedChannel(channel);
     watchStartTime.current = Date.now();
-    // Close sidebar on mobile after selecting channel
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
-  }, [selectedChannel, isMobile]);
+    // Close sidebar after selecting channel (overlay behavior)
+    setSidebarOpen(false);
+  }, [selectedChannel]);
 
   // Get all available channels sorted by number for sequential navigation
   const allAvailableChannels = useMemo(() => {
@@ -678,21 +672,21 @@ export default function IPTVPlayer() {
 
   return (
     <div className="flex h-screen animated-bg text-white overflow-hidden relative">
-      {/* Mobile Overlay Backdrop */}
-      {isMobile && sidebarOpen && (
+      {/* Overlay Backdrop - shown when sidebar is open */}
+      {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar - Full screen on mobile, fixed width on desktop */}
+      {/* Sidebar - Fixed position with transform animation (no player resize) */}
       <aside
         className={`
-          ${isMobile
-            ? `fixed inset-y-0 left-0 w-full max-w-sm z-50 transform transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
-            : `${sidebarOpen ? 'w-96' : 'w-0'} transition-all duration-500 ease-out relative z-10`
-          }
+          fixed inset-y-0 left-0 z-50
+          w-[85vw] max-w-[320px] md:w-80 lg:w-96
+          transform transition-transform duration-300 ease-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           glass-dark flex flex-col overflow-hidden
         `}
       >
@@ -711,17 +705,15 @@ export default function IPTVPlayer() {
                 <p className="text-xs text-white/40">{timeRecs.greeting}</p>
               </div>
             </div>
-            {/* Close button - only on mobile */}
-            {isMobile && (
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-2 glass rounded-lg hover:bg-white/10 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
+            {/* Close button */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 glass rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           {/* Search */}
@@ -1331,7 +1323,7 @@ export default function IPTVPlayer() {
 
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`p-2.5 md:p-3 rounded-lg md:rounded-xl transition-all touch-manipulation ${sidebarOpen && !isMobile ? 'glass-button-active' : 'glass hover:bg-white/10 active:bg-white/20'}`}
+                className={`p-2.5 md:p-3 rounded-lg md:rounded-xl transition-all touch-manipulation ${sidebarOpen ? 'glass-button-active' : 'glass hover:bg-white/10 active:bg-white/20'}`}
                 title="Toggle Guide"
               >
                 <svg className="w-5 h-5 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

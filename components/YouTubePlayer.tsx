@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Channel } from '@/lib/channels';
+import Hls from 'hls.js';
+import { Loader2, ExternalLink } from 'lucide-react';
 
 interface YouTubePlayerProps {
   channel: Channel;
@@ -11,6 +13,13 @@ interface YouTubePlayerProps {
 
 export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: YouTubePlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+
+  const [hlsUrl, setHlsUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [useEmbed, setUseEmbed] = useState(false);
 
   // Swipe gesture tracking
   const touchStartX = useRef<number>(0);
@@ -37,7 +46,93 @@ export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: Yo
   };
 
   const videoId = getYouTubeId(channel.url);
-  const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0` : null;
+
+  // Try to extract HLS URL
+  useEffect(() => {
+    if (!videoId) {
+      setError('Invalid YouTube URL');
+      setLoading(false);
+      return;
+    }
+
+    const extractHls = async () => {
+      setLoading(true);
+      setError(null);
+      setHlsUrl(null);
+      setUseEmbed(false);
+
+      try {
+        const response = await fetch(`/api/youtube-extract?url=${encodeURIComponent(channel.url)}`);
+        const data = await response.json();
+
+        if (data.hlsUrl) {
+          setHlsUrl(data.hlsUrl);
+        } else {
+          // No HLS available, fall back to embed
+          setUseEmbed(true);
+        }
+      } catch (err) {
+        // On error, fall back to embed
+        setUseEmbed(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    extractHls();
+  }, [channel.url, videoId]);
+
+  // Initialize HLS player when we have an HLS URL
+  useEffect(() => {
+    if (!hlsUrl || !videoRef.current) return;
+
+    const video = videoRef.current;
+
+    // Cleanup previous instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 90,
+      });
+
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {});
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          console.error('HLS fatal error, falling back to embed:', data);
+          setUseEmbed(true);
+          setHlsUrl(null);
+        }
+      });
+
+      hlsRef.current = hls;
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS support (Safari)
+      video.src = hlsUrl;
+      video.play().catch(() => {});
+    } else {
+      // No HLS support, fall back to embed
+      setUseEmbed(true);
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [hlsUrl]);
 
   // Swipe gesture handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -70,6 +165,67 @@ export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: Yo
     touchEndY.current = 0;
   }, [onSwipeLeft, onSwipeRight]);
 
+  const openOnYouTube = () => {
+    window.open(channel.url, '_blank');
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="relative w-full h-full bg-black flex items-center justify-center">
+        <div className="text-center text-white/60">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+          <p className="text-sm">Loading video...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && !useEmbed) {
+    return (
+      <div className="relative w-full h-full bg-black flex items-center justify-center">
+        <div className="text-center text-white/60">
+          <p>{error}</p>
+          <p className="text-sm text-white/40 mt-2">{channel.url}</p>
+          <button
+            onClick={openOnYouTube}
+            className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center gap-2 mx-auto"
+          >
+            <ExternalLink size={16} />
+            Watch on YouTube
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // HLS player
+  if (hlsUrl && !useEmbed) {
+    return (
+      <div
+        ref={containerRef}
+        className="relative w-full h-full bg-black group touch-manipulation"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain"
+          controls
+          playsInline
+          autoPlay
+        />
+      </div>
+    );
+  }
+
+  // YouTube embed fallback
+  const embedUrl = videoId
+    ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`
+    : null;
+
   if (!embedUrl) {
     return (
       <div className="relative w-full h-full bg-black flex items-center justify-center">
@@ -89,7 +245,7 @@ export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: Yo
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* YouTube iframe */}
+      {/* YouTube iframe embed */}
       <iframe
         src={embedUrl}
         className="w-full h-full"
@@ -97,6 +253,15 @@ export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: Yo
         allowFullScreen
         title={channel.name}
       />
+
+      {/* Watch on YouTube button - shown as fallback option */}
+      <button
+        onClick={openOnYouTube}
+        className="absolute bottom-4 right-4 px-3 py-2 bg-black/70 hover:bg-black/90 text-white text-sm rounded-lg flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <ExternalLink size={14} />
+        Open in YouTube
+      </button>
     </div>
   );
 }
