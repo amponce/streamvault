@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
@@ -71,6 +72,7 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased bg-[#0a0a0a] overflow-hidden`}>
         <ServiceWorkerRegistration />
         {children}
+        <Analytics />
       </body>
     </html>
   );
