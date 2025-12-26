@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Channel } from '@/lib/channels';
-import { CATEGORY_ICONS } from '@/constants/icons';
 import {
   getCurrentProgramForChannel,
   getUpcomingProgramsForChannel,
@@ -11,7 +10,7 @@ import {
   getEPGProgramProgress,
   EPGProgramSlot,
 } from '@/lib/epgService';
-import { Clock, Play, ChevronLeft, ChevronRight, Calendar, Tv } from 'lucide-react';
+import { Clock, Play, Calendar, Tv, Radio } from 'lucide-react';
 
 interface TVGuideProps {
   channels: Channel[];
@@ -22,6 +21,23 @@ interface TVGuideProps {
 
 type TimeSlot = 'now' | '30min' | '1hr' | '2hr';
 
+// Category emoji mapping (simpler than React components for this use case)
+const CATEGORY_EMOJI: Record<string, string> = {
+  Favorites: '❤️',
+  All: '📺',
+  Imported: '📥',
+  Local: '🏠',
+  News: '📰',
+  Sports: '🏆',
+  Entertainment: '🎬',
+  Movies: '🎥',
+  Music: '🎵',
+  Kids: '👶',
+  Documentary: '🎓',
+  Horror: '💀',
+  Comedy: '😂',
+};
+
 export function TVGuide({
   channels,
   selectedChannel,
@@ -29,30 +45,39 @@ export function TVGuide({
   onClose,
 }: TVGuideProps) {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot>('now');
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [visibleChannels, setVisibleChannels] = useState(20);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Update time every minute
+  // Initialize time on client side only to avoid hydration mismatch
   useEffect(() => {
+    setCurrentTime(new Date());
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // Get programs for visible channels
+  // Memoize program data - only recalculate when channels change
   const channelPrograms = useMemo(() => {
-    const programs: Map<string, { current: EPGProgramSlot | null; upcoming: EPGProgramSlot[] }> = new Map();
+    const programs = new Map<string, { current: EPGProgramSlot | null; upcoming: EPGProgramSlot[] }>();
+
+    if (!channels || channels.length === 0) return programs;
 
     channels.slice(0, visibleChannels).forEach(channel => {
-      const current = getCurrentProgramForChannel(channel);
-      const upcoming = getUpcomingProgramsForChannel(channel, 3);
-      programs.set(channel.id, { current, upcoming });
+      if (!channel || !channel.id) return;
+      try {
+        const current = getCurrentProgramForChannel(channel);
+        const upcoming = getUpcomingProgramsForChannel(channel, 3);
+        programs.set(channel.id, { current, upcoming });
+      } catch (error) {
+        console.error('Error getting program for channel:', channel.id, error);
+        programs.set(channel.id, { current: null, upcoming: [] });
+      }
     });
 
     return programs;
-  }, [channels, visibleChannels, currentTime]);
+  }, [channels, visibleChannels]);
 
   // Get program to display based on time slot
   const getProgramForSlot = useCallback((
@@ -85,27 +110,47 @@ export function TVGuide({
     }
   }, [channels.length]);
 
-  // Format current time
-  const formattedTime = useMemo(() => {
-    return currentTime.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  }, [currentTime]);
+  // Handle channel click
+  const handleChannelClick = useCallback((channel: Channel) => {
+    if (!channel) return;
+    try {
+      onPlayChannel(channel);
+    } catch (error) {
+      console.error('Error playing channel:', error);
+    }
+  }, [onPlayChannel]);
 
-  const formattedDate = useMemo(() => {
-    return currentTime.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  }, [currentTime]);
+  // Format current time (only render after hydration)
+  const formattedTime = currentTime
+    ? currentTime.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+    : '--:--';
+
+  const formattedDate = currentTime
+    ? currentTime.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      })
+    : '---';
+
+  // Don't render channel list until we have channels
+  if (!channels || channels.length === 0) {
+    return (
+      <div className="flex flex-col h-full bg-black/95 text-white items-center justify-center">
+        <Radio className="w-12 h-12 text-white/20 mb-4" />
+        <p className="text-white/40 text-sm">No channels available</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-black/95 text-white">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/60 backdrop-blur-sm">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/60 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30 flex items-center justify-center">
             <Tv className="w-5 h-5 text-red-500" />
@@ -133,7 +178,7 @@ export function TVGuide({
       </div>
 
       {/* Time Slot Selector */}
-      <div className="flex gap-1.5 px-4 py-3 border-b border-white/5 overflow-x-auto custom-scrollbar">
+      <div className="flex-shrink-0 flex gap-1.5 px-4 py-3 border-b border-white/5 overflow-x-auto custom-scrollbar">
         {[
           { slot: 'now' as TimeSlot, label: 'Now' },
           { slot: '30min' as TimeSlot, label: 'Up Next' },
@@ -158,10 +203,12 @@ export function TVGuide({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto custom-scrollbar"
+        className="flex-1 overflow-y-auto custom-scrollbar min-h-0"
       >
-        <div className="space-y-px">
+        <div className="divide-y divide-white/5">
           {channels.slice(0, visibleChannels).map(channel => {
+            if (!channel || !channel.id) return null;
+
             const program = getProgramForSlot(channel.id, selectedTimeSlot);
             const isSelected = selectedChannel?.id === channel.id;
             const progress = program && selectedTimeSlot === 'now'
@@ -171,8 +218,8 @@ export function TVGuide({
             return (
               <button
                 key={channel.id}
-                onClick={() => onPlayChannel(channel)}
-                className={`w-full flex items-stretch gap-0 text-left transition-all ${
+                onClick={() => handleChannelClick(channel)}
+                className={`w-full flex items-stretch text-left transition-all ${
                   isSelected
                     ? 'bg-red-500/10 border-l-2 border-l-red-500'
                     : 'hover:bg-white/5 border-l-2 border-l-transparent'
@@ -181,12 +228,12 @@ export function TVGuide({
                 {/* Channel Info */}
                 <div className="flex-shrink-0 w-20 md:w-24 p-2.5 md:p-3 border-r border-white/5 flex flex-col items-center justify-center">
                   <span className="text-lg md:text-xl mb-0.5">
-                    {CATEGORY_ICONS[channel.category] || '📺'}
+                    {CATEGORY_EMOJI[channel.category] || '📺'}
                   </span>
                   <span className="text-[10px] md:text-xs font-bold text-white/70">
                     CH {channel.number}
                   </span>
-                  <span className="text-[9px] md:text-[10px] text-white/40 truncate max-w-full">
+                  <span className="text-[9px] md:text-[10px] text-white/40 truncate max-w-full text-center">
                     {channel.name.length > 10
                       ? channel.name.substring(0, 10) + '...'
                       : channel.name}
@@ -208,7 +255,7 @@ export function TVGuide({
                       <p className="text-xs text-white/50 line-clamp-1 mb-1.5">
                         {program.description}
                       </p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] text-white/30">
                           {formatEPGDuration(program.duration)}
                         </span>
@@ -235,8 +282,8 @@ export function TVGuide({
                       )}
                     </>
                   ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <span className="text-xs text-white/30">No program info</span>
+                    <div className="flex items-center h-full min-h-[40px]">
+                      <span className="text-xs text-white/30">No program info available</span>
                     </div>
                   )}
                 </div>
@@ -261,7 +308,7 @@ export function TVGuide({
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t border-white/10 flex items-center justify-between text-xs text-white/40">
+      <div className="flex-shrink-0 px-4 py-2 border-t border-white/10 flex items-center justify-between text-xs text-white/40">
         <span>{channels.length} channels</span>
         <span>
           Showing {selectedTimeSlot === 'now' ? 'current' : 'upcoming'} programs
