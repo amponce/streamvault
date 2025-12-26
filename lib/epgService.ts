@@ -1,6 +1,6 @@
 /**
  * EPG (Electronic Program Guide) Service
- * Fetches real TV guide data from iptv-org API
+ * Fetches real TV guide data from iptv-org API and links with channels
  */
 
 import { Channel } from './channels';
@@ -56,16 +56,26 @@ export interface EPGProgramSlot {
   isLive: boolean;
   category?: string;
   rating?: string;
+  epgChannelId?: string;  // Link to EPG channel if matched
+}
+
+// Extended channel type with EPG info
+export interface ChannelWithEPG extends Channel {
+  epgChannelId?: string;
+  epgChannelName?: string;
+  epgLogo?: string;
 }
 
 // Cache for EPG data
 interface EPGCache {
   guides: EPGGuide[];
   channels: EPGChannel[];
+  channelMapping?: Record<string, string>;  // app channel id -> epg channel id (stored separately)
   timestamp: number;
 }
 
 const EPG_CACHE_KEY = 'streamvault_epg_cache';
+const EPG_MAPPING_KEY = 'streamvault_epg_mapping';
 const EPG_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 // API endpoints
@@ -400,7 +410,176 @@ export function getEPGProgramProgress(program: EPGProgramSlot): number {
 export function clearEPGCache(): void {
   try {
     localStorage.removeItem(EPG_CACHE_KEY);
+    localStorage.removeItem(EPG_MAPPING_KEY);
   } catch {
     // Ignore
   }
+}
+
+// ============================================
+// EPG CHANNEL MAPPING FUNCTIONS
+// ============================================
+
+/**
+ * Load channel mapping from localStorage
+ */
+export function loadChannelMapping(): Record<string, string> {
+  try {
+    const mapping = localStorage.getItem(EPG_MAPPING_KEY);
+    if (mapping) {
+      return JSON.parse(mapping);
+    }
+  } catch {
+    // Ignore
+  }
+  return {};
+}
+
+/**
+ * Save channel mapping to localStorage
+ */
+export function saveChannelMapping(mapping: Record<string, string>): void {
+  try {
+    localStorage.setItem(EPG_MAPPING_KEY, JSON.stringify(mapping));
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
+/**
+ * Auto-match app channels with EPG channels
+ * Uses fuzzy matching on channel names
+ */
+export function autoMatchChannels(
+  appChannels: Channel[],
+  epgChannels: EPGChannel[]
+): Record<string, string> {
+  const mapping: Record<string, string> = {};
+  const existingMapping = loadChannelMapping();
+
+  appChannels.forEach(appChannel => {
+    // Skip if already mapped
+    if (existingMapping[appChannel.id]) {
+      mapping[appChannel.id] = existingMapping[appChannel.id];
+      return;
+    }
+
+    const match = findEPGChannelMatch(appChannel, epgChannels);
+    if (match) {
+      mapping[appChannel.id] = match.id;
+    }
+  });
+
+  // Save the new mapping
+  saveChannelMapping(mapping);
+  return mapping;
+}
+
+/**
+ * Get EPG channel ID for an app channel
+ */
+export function getEPGChannelId(appChannelId: string): string | null {
+  const mapping = loadChannelMapping();
+  return mapping[appChannelId] || null;
+}
+
+/**
+ * Set EPG channel ID for an app channel (manual override)
+ */
+export function setEPGChannelId(appChannelId: string, epgChannelId: string): void {
+  const mapping = loadChannelMapping();
+  mapping[appChannelId] = epgChannelId;
+  saveChannelMapping(mapping);
+}
+
+/**
+ * Remove EPG channel mapping for an app channel
+ */
+export function removeEPGChannelId(appChannelId: string): void {
+  const mapping = loadChannelMapping();
+  delete mapping[appChannelId];
+  saveChannelMapping(mapping);
+}
+
+/**
+ * Get channels with EPG data attached
+ */
+export function enrichChannelsWithEPG(
+  channels: Channel[],
+  epgChannels: EPGChannel[]
+): ChannelWithEPG[] {
+  const mapping = loadChannelMapping();
+
+  return channels.map(channel => {
+    const epgChannelId = mapping[channel.id];
+    if (epgChannelId) {
+      const epgChannel = epgChannels.find(e => e.id === epgChannelId);
+      if (epgChannel) {
+        return {
+          ...channel,
+          epgChannelId: epgChannel.id,
+          epgChannelName: epgChannel.name,
+          epgLogo: epgChannel.logo,
+        };
+      }
+    }
+    return channel;
+  });
+}
+
+/**
+ * Check if a channel has EPG data available
+ */
+export function hasEPGData(channelId: string): boolean {
+  const mapping = loadChannelMapping();
+  return !!mapping[channelId];
+}
+
+/**
+ * Get EPG status for display
+ */
+export function getEPGStatus(): {
+  initialized: boolean;
+  channelCount: number;
+  mappedCount: number;
+} {
+  try {
+    const cached = localStorage.getItem(EPG_CACHE_KEY);
+    const mapping = loadChannelMapping();
+
+    if (!cached) {
+      return { initialized: false, channelCount: 0, mappedCount: 0 };
+    }
+
+    const cache: EPGCache = JSON.parse(cached);
+    return {
+      initialized: true,
+      channelCount: cache.channels?.length || 0,
+      mappedCount: Object.keys(mapping).length,
+    };
+  } catch {
+    return { initialized: false, channelCount: 0, mappedCount: 0 };
+  }
+}
+
+/**
+ * Initialize EPG and auto-match channels
+ */
+export async function initializeEPGWithMatching(
+  appChannels: Channel[]
+): Promise<{
+  guides: EPGGuide[];
+  channels: EPGChannel[];
+  mapping: Record<string, string>;
+}> {
+  const { guides, channels } = await initializeEPG();
+
+  // Only auto-match US channels for now (most streams are US-based)
+  const usChannels = channels.filter(
+    c => c.country === 'US' || c.broadcast_area.some(a => a.includes('US'))
+  );
+
+  const mapping = autoMatchChannels(appChannels, usChannels);
+
+  return { guides, channels: usChannels, mapping };
 }
