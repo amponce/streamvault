@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import Hls from 'hls.js';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Tv, Radio, RefreshCw, ChevronLeft, ChevronRight, Flag, CheckCircle, Play } from 'lucide-react';
 import { Channel } from '@/lib/channels';
+import { CATEGORY_ICONS } from '@/constants/icons';
 
 interface VideoPlayerProps {
   channel: Channel;
@@ -13,9 +14,21 @@ interface VideoPlayerProps {
   onReportDead?: (channel: Channel, error: string) => void;
   onAskAI?: () => void;      // Open Ask AI panel
   hasAIContext?: boolean;    // Whether we have program info for AI
+  recommendedChannels?: Channel[];  // Channels to suggest when stream fails
+  onPlayChannel?: (channel: Channel) => void;  // Play a specific channel
 }
 
-export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwipeRight, onReportDead, onAskAI, hasAIContext }: VideoPlayerProps) {
+export default function VideoPlayer({
+  channel,
+  onStreamError,
+  onSwipeLeft,
+  onSwipeRight,
+  onReportDead,
+  onAskAI,
+  hasAIContext,
+  recommendedChannels = [],
+  onPlayChannel,
+}: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -340,82 +353,137 @@ export default function VideoPlayer({ channel, onStreamError, onSwipeLeft, onSwi
         </div>
       )}
 
-      {/* Error State */}
+      {/* Channel Off-Air State - Intentional Design */}
       {error && (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          className="absolute inset-0 flex flex-col bg-gradient-to-b from-gray-900 via-black to-gray-900 overflow-y-auto"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="text-center max-w-md px-6">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/10 flex items-center justify-center">
-              <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+          {/* Animated Background Pattern */}
+          <div className="absolute inset-0 opacity-30">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(219,0,0,0.15),transparent_40%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(131,16,16,0.1),transparent_40%)]" />
+          </div>
+
+          {/* Main Content */}
+          <div className="relative flex-1 flex flex-col items-center justify-center px-4 py-6 md:py-8 min-h-0">
+            {/* Off-Air Badge */}
+            <div className="flex items-center gap-2 mb-4 md:mb-6">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-amber-500 text-xs font-medium uppercase tracking-wider">Off Air</span>
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Stream Unavailable</h3>
-            <p className="text-white/50 text-sm mb-4">{error}</p>
 
-            {/* Report Dead Link */}
-            {!reported ? (
-              <button
-                onClick={() => {
-                  setReported(true);
-                  onReportDead?.(channel, error);
-                }}
-                className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors mb-4 flex items-center gap-1 mx-auto"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                </svg>
-                Report dead link
-              </button>
-            ) : (
-              <p className="text-xs text-green-400 mb-4 flex items-center gap-1 justify-center">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Reported - thanks!
-              </p>
-            )}
+            {/* TV Static Icon */}
+            <div className="relative mb-4 md:mb-6">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl md:rounded-3xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center border border-white/10 shadow-2xl">
+                <Tv className="w-10 h-10 md:w-12 md:h-12 text-white/60" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 md:w-7 md:h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                <Radio className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-500" />
+              </div>
+            </div>
 
-            {/* Navigation and action buttons */}
-            <div className="flex gap-3 justify-center items-center">
-              {/* Previous Channel */}
+            {/* Channel Info */}
+            <h2 className="text-lg md:text-xl font-bold text-white mb-1 text-center">{channel.name}</h2>
+            <p className="text-white/40 text-xs md:text-sm mb-4 md:mb-6 text-center max-w-xs">
+              This channel is temporarily unavailable. Try again later or explore other channels.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 md:gap-3 mb-6 md:mb-8">
               <button
                 onClick={onSwipeRight}
-                className="w-12 h-12 glass rounded-xl flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all"
+                className="w-10 h-10 md:w-11 md:h-11 glass rounded-xl flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all touch-manipulation"
                 title="Previous Channel"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
+                <ChevronLeft className="w-5 h-5" />
               </button>
 
               <button
                 onClick={retryStream}
-                className="glass-button px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2"
+                className="glass-button px-4 md:px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 touch-manipulation"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Retry
+                <RefreshCw className="w-4 h-4" />
+                <span>Retry</span>
               </button>
 
-              {/* Next Channel */}
               <button
                 onClick={onSwipeLeft}
-                className="w-12 h-12 glass rounded-xl flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all"
+                className="w-10 h-10 md:w-11 md:h-11 glass rounded-xl flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-all touch-manipulation"
                 title="Next Channel"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-white/30 text-xs mt-4">Swipe left/right to change channels</p>
+            {/* Report Link - Subtle */}
+            <button
+              onClick={() => {
+                if (!reported) {
+                  setReported(true);
+                  onReportDead?.(channel, error);
+                }
+              }}
+              disabled={reported}
+              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/60 transition-colors touch-manipulation disabled:cursor-default"
+            >
+              {reported ? (
+                <>
+                  <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                  <span className="text-green-500">Thanks for reporting</span>
+                </>
+              ) : (
+                <>
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Report issue</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Recommended Channels Section */}
+          {recommendedChannels.length > 0 && (
+            <div className="relative border-t border-white/10 bg-black/40 backdrop-blur-sm px-4 py-4 md:py-5 safe-area-bottom">
+              <div className="max-w-lg mx-auto">
+                <p className="text-xs text-white/50 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <span className="w-4 h-px bg-white/20" />
+                  Try These Instead
+                  <span className="flex-1 h-px bg-white/20" />
+                </p>
+
+                <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                  {recommendedChannels.slice(0, 6).map((rec) => (
+                    <button
+                      key={rec.id}
+                      onClick={() => onPlayChannel?.(rec)}
+                      className="flex-shrink-0 group"
+                    >
+                      <div className="w-20 md:w-24 glass-card rounded-xl p-2.5 md:p-3 text-center hover:border-red-500/30 transition-all touch-manipulation">
+                        <div className="text-xl md:text-2xl mb-1">
+                          {CATEGORY_ICONS[rec.category] || '📺'}
+                        </div>
+                        <div className="text-[10px] md:text-xs font-medium text-white truncate">
+                          {rec.name}
+                        </div>
+                        <div className="text-[9px] md:text-[10px] text-white/40 truncate">
+                          CH {rec.number}
+                        </div>
+                        <div className="mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-3 h-3 mx-auto text-red-500" />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Swipe Hint for Mobile */}
+          <div className="absolute bottom-20 left-0 right-0 text-center pointer-events-none md:hidden">
+            <p className="text-white/20 text-[10px]">Swipe to change channels</p>
           </div>
         </div>
       )}

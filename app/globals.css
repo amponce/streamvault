@@ -581,3 +581,101 @@ input:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ========================================
+   MOBILE NAVIGATION FIX
+   Ensure controls bar never goes below viewport
+   ======================================== */
+
+/* Main layout container fixes */
+.flex.h-screen {
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
+  max-height: -webkit-fill-available;
+}
+
+/* Mobile control bar - always visible */
+@media (max-width: 768px) {
+  /* Ensure main content respects control bar height */
+  main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  /* Player container should shrink, not push controls off-screen */
+  main > div:first-child {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Control bar should never shrink */
+  main > div:last-child {
+    flex-shrink: 0;
+  }
+}
+
+/* TV Guide mobile optimizations */
+.tv-guide-mobile {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Off-air screen styling */
+.off-air-bg {
+  background: linear-gradient(
+    135deg,
+    rgba(20, 20, 25, 1) 0%,
+    rgba(10, 10, 12, 1) 50%,
+    rgba(20, 20, 25, 1) 100%
+  );
+}
+
+/* Swipe hint animation */
+@keyframes swipeHint {
+  0%, 100% {
+    opacity: 0.2;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0.4;
+    transform: translateX(5px);
+  }
+}
+
+.swipe-hint {
+  animation: swipeHint 2s ease-in-out infinite;
+}
+
+/* Channel recommendation cards */
+.rec-channel-card {
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.rec-channel-card:active {
+  transform: scale(0.95);
+}
+
+/* EPG progress bar animation */
+@keyframes epgProgress {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+.epg-progress {
+  background: linear-gradient(
+    90deg,
+    rgba(219, 0, 0, 1) 0%,
+    rgba(255, 80, 80, 1) 50%,
+    rgba(219, 0, 0, 1) 100%
+  );
+  background-size: 200% 100%;
+  animation: epgProgress 2s linear infinite;
+}

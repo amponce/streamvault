@@ -68,6 +68,7 @@ import {
 } from '@/lib/iptvOrgApi';
 import { useFavorites } from '@/hooks/useFavorites';
 import { FavoritesManager } from './FavoritesManager';
+import { TVGuide } from './TVGuide';
 
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), {
   ssr: false,
@@ -670,8 +671,24 @@ export default function IPTVPlayer() {
   const quickPicks = useMemo(() => getQuickPicks(6), []);
   const lastWatched = useMemo(() => getLastWatched(), []);
 
+  // Get recommended channels for broken stream fallback
+  const recommendedChannels = useMemo(() => {
+    if (!selectedChannel) return [];
+
+    // Get channels from the same category first, then mix in popular ones
+    const sameCategory = allAvailableChannels
+      .filter(ch => ch.category === selectedChannel.category && ch.id !== selectedChannel.id)
+      .slice(0, 3);
+
+    const otherPopular = allAvailableChannels
+      .filter(ch => ch.category !== selectedChannel.category && ch.number <= 50)
+      .slice(0, 3);
+
+    return [...sameCategory, ...otherPopular];
+  }, [selectedChannel, allAvailableChannels]);
+
   return (
-    <div className="flex h-screen animated-bg text-white overflow-hidden relative">
+    <div className="flex h-screen h-[100dvh] animated-bg text-white overflow-hidden relative">
       {/* Overlay Backdrop - shown when sidebar is open */}
       {sidebarOpen && (
         <div
@@ -911,49 +928,16 @@ export default function IPTVPlayer() {
               </div>
             )
           ) : viewMode === 'schedule' ? (
-            /* Schedule View */
-            <div className="space-y-4">
-              <div className="text-xs text-white/40 uppercase tracking-wider mb-2">What&apos;s On Now</div>
-              {displayedChannels.slice(0, 10).map((channel) => {
-                const program = getCurrentProgram(channel);
-                const upcoming = getUpcomingPrograms(channel, 2);
-                return (
-                  <button
-                    key={channel.id}
-                    onClick={() => playChannel(channel)}
-                    className="w-full glass-card rounded-xl p-4 text-left channel-card"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-lg">{CATEGORY_ICONS[channel.category]}</span>
-                      <span className="font-medium text-sm">{channel.name}</span>
-                      {selectedChannel?.id === channel.id && (
-                        <span className="ml-auto px-2 py-0.5 rounded-full bg-violet-500/30 text-violet-300 text-xs">
-                          Watching
-                        </span>
-                      )}
-                    </div>
-                    {program && (
-                      <div className="mb-2">
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-white/90 font-medium">{program.title}</span>
-                          <span className="text-white/40 text-xs">{formatTime(program.startTime)}</span>
-                        </div>
-                        <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 transition-all duration-1000"
-                            style={{ width: `${getProgramProgress(program)}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                    {upcoming.length > 0 && (
-                      <div className="text-xs text-white/40 mt-2">
-                        Up next: {upcoming[0].title} at {formatTime(upcoming[0].startTime)}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
+            /* Schedule View - TV Guide */
+            <div className="h-full -mx-4 -mb-4">
+              <TVGuide
+                channels={displayedChannels}
+                selectedChannel={selectedChannel}
+                onPlayChannel={(channel) => {
+                  playChannel(channel);
+                  setSidebarOpen(false);
+                }}
+              />
             </div>
           ) : (
             /* Discover View */
@@ -1162,11 +1146,12 @@ export default function IPTVPlayer() {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative">
-        {/* Video Player */}
+      {/* Main Content - Fixed height calculation for mobile */}
+      <main className="flex-1 flex flex-col relative min-h-0">
+        {/* Video Player - Uses calc to ensure controls stay visible */}
         <div
-          className="flex-1 relative bg-black"
+          className="flex-1 relative bg-black min-h-0"
+          style={{ maxHeight: 'calc(100vh - 72px)' }}
           onMouseMove={resetOverlayTimer}
           onMouseEnter={resetOverlayTimer}
         >
@@ -1187,6 +1172,8 @@ export default function IPTVPlayer() {
                   onReportDead={handleReportDead}
                   onAskAI={() => setShowAskAI(true)}
                   hasAIContext={selectedChannel.id.startsWith('pluto-') || !!currentProgram}
+                  recommendedChannels={recommendedChannels}
+                  onPlayChannel={playChannel}
                 />
               )}
               {/* Now Playing Overlay - Auto-hides, Mobile Friendly */}
@@ -1270,8 +1257,8 @@ export default function IPTVPlayer() {
           )}
         </div>
 
-        {/* Controls Bar - Responsive */}
-        <div className="glass-dark border-t border-white/5 px-3 md:px-6 py-3 md:py-4 safe-area-bottom">
+        {/* Controls Bar - Responsive, always visible */}
+        <div className="flex-shrink-0 glass-dark border-t border-white/5 px-3 md:px-6 py-3 md:py-4 safe-area-bottom min-h-[72px] md:min-h-[80px]">
           <div className="flex items-center justify-between gap-2 md:gap-4">
             {/* Channel Info - Simplified on mobile */}
             <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
