@@ -241,9 +241,6 @@ export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: Yo
     <div
       ref={containerRef}
       className="relative w-full h-full bg-black group touch-manipulation"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
       {/* YouTube iframe embed */}
       <iframe
@@ -252,6 +249,20 @@ export default function YouTubePlayer({ channel, onSwipeLeft, onSwipeRight }: Yo
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
         title={channel.name}
+      />
+
+      {/* Swipe detection overlay - transparent areas on left/right edges for navigation */}
+      <div
+        className="absolute inset-y-0 left-0 w-16 md:w-20"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      />
+      <div
+        className="absolute inset-y-0 right-0 w-16 md:w-20"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       />
 
       {/* Watch on YouTube button - shown as fallback option */}

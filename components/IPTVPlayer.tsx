@@ -1531,7 +1531,7 @@ export default function IPTVPlayer() {
                 onTouchStart={resetOverlayTimer}
               >
                 <div className="flex items-start justify-between">
-                  <div className="min-w-0 max-w-[70%] md:max-w-[60%]">
+                  <div className="min-w-0 flex-1 pr-4">
                     <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2">
                       <span className="px-1.5 md:px-2 py-0.5 md:py-1 rounded-md bg-red-500/80 text-xs font-bold flex items-center gap-1 flex-shrink-0">
                         <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -1539,9 +1539,9 @@ export default function IPTVPlayer() {
                       </span>
                       <span className="text-white/80 text-xs md:text-sm flex-shrink-0">CH {selectedChannel.number}</span>
                     </div>
-                    <h2 className="text-lg md:text-2xl font-bold text-white mb-0.5 md:mb-1 truncate">{selectedChannel.name}</h2>
+                    <h2 className="text-lg md:text-2xl font-bold text-white mb-0.5 md:mb-1 truncate max-w-full">{selectedChannel.name}</h2>
                     {currentProgram && (
-                      <div className="text-white/60 text-xs md:text-sm">
+                      <div className="text-white/60 text-xs md:text-sm truncate max-w-full">
                         {currentProgram.title} • {formatDuration(currentProgram.duration)}
                       </div>
                     )}
