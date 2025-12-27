@@ -1608,22 +1608,16 @@ export default function IPTVPlayer() {
         <div className="flex-shrink-0 glass-dark border-t border-white/5 px-3 md:px-6 py-3 md:py-4 safe-area-bottom min-h-[72px] md:min-h-[80px]">
           <div className="flex items-center justify-between gap-2 md:gap-4">
             {/* Channel Info - Simplified on mobile */}
-            <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+            <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1 overflow-hidden">
               {selectedChannel ? (
                 <>
                   <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-gradient-to-br ${categoryColors[selectedChannel.category]} flex items-center justify-center font-bold text-sm md:text-lg shadow-lg flex-shrink-0`}>
                     {selectedChannel.number}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm md:text-base truncate">{selectedChannel.name}</div>
-                    <div className="flex items-center gap-2 text-xs md:text-sm text-white/40 truncate">
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="font-medium text-sm md:text-base truncate max-w-[150px] sm:max-w-[200px] md:max-w-none">{selectedChannel.name}</div>
+                    <div className="text-xs md:text-sm text-white/40 truncate">
                       <span>{selectedChannel.category}</span>
-                      {currentProgram && !isMobile && (
-                        <>
-                          <span>•</span>
-                          <span className="truncate">{currentProgram.title}</span>
-                        </>
-                      )}
                     </div>
                   </div>
                 </>
