@@ -12,6 +12,8 @@ interface ChannelCardProps {
   animationDelay?: number;
   onPlay: () => void;
   onToggleFavorite: () => void;
+  onMouseEnter?: (e: React.MouseEvent) => void;
+  onMouseLeave?: () => void;
 }
 
 function ChannelCardComponent({
@@ -21,6 +23,8 @@ function ChannelCardComponent({
   animationDelay = 0,
   onPlay,
   onToggleFavorite,
+  onMouseEnter,
+  onMouseLeave,
 }: ChannelCardProps) {
   return (
     <div
@@ -31,6 +35,8 @@ function ChannelCardComponent({
           onPlay();
         }
       }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       role="button"
       tabIndex={0}
       className={`w-full glass-card channel-card rounded-xl p-3 text-left fade-in cursor-pointer ${

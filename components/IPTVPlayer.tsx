@@ -15,7 +15,7 @@ import {
   getChannelsByMood,
   loadUserPreferences,
 } from '@/lib/aiFeatures';
-import { Send, Loader2, Sparkles, Heart, Settings, ChevronDown, Film, Tv, LayoutGrid, Youtube, Grid3x3, List } from 'lucide-react';
+import { Send, Loader2, Sparkles, Heart, Settings, ChevronDown, Film, Tv, LayoutGrid, Youtube, Grid3x3, List, Mic, MicOff, Share2, Cast, TrendingUp, Users } from 'lucide-react';
 import {
   CATEGORY_ICONS,
   MOOD_ICONS,
@@ -69,6 +69,34 @@ import {
 import { useFavorites } from '@/hooks/useFavorites';
 import { FavoritesManager } from './FavoritesManager';
 import { TVGuide } from './TVGuide';
+import { useVoiceSearch } from '@/hooks/useVoiceSearch';
+import { ChannelPreview, useChannelPreview } from './ChannelPreview';
+import {
+  startViewSession,
+  endViewSession,
+  getRelatedChannels,
+  getTrendingChannels,
+} from '@/lib/channelAnalytics';
+import {
+  getSubFiltersForCategory,
+  filterChannelsBySubFilter,
+  SubFilter,
+} from '@/lib/categoryFilters';
+import {
+  shareChannel,
+  parseChannelFromUrl,
+  clearChannelFromUrl,
+} from '@/lib/shareChannel';
+import {
+  initializeChromecast,
+  requestCastSession,
+  castChannel,
+  stopCasting,
+  subscribeToCastState,
+  CastState,
+  isAirPlayAvailable,
+  showAirPlayPicker,
+} from '@/lib/castService';
 
 const VideoPlayer = dynamic(() => import('./VideoPlayer'), {
   ssr: false,
@@ -159,6 +187,35 @@ export default function IPTVPlayer() {
   const [showFavoritesManager, setShowFavoritesManager] = useState(false);
   const [showContentFilterDropdown, setShowContentFilterDropdown] = useState(false);
 
+  // New feature states
+  const [activeSubFilter, setActiveSubFilter] = useState<SubFilter | null>(null);
+  const [castState, setCastState] = useState<CastState>({ isAvailable: false, isConnected: false, deviceName: null, castType: null });
+  const [shareStatus, setShareStatus] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
+  const [channelNumberInput, setChannelNumberInput] = useState<string>('');
+  const [showChannelInput, setShowChannelInput] = useState(false);
+  const channelInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Voice search hook
+  const {
+    isListening,
+    transcript,
+    isSupported: voiceSupported,
+    error: voiceError,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useVoiceSearch();
+
+  // Channel preview hook
+  const {
+    previewChannel,
+    previewPosition,
+    isPreviewVisible,
+    showPreview,
+    hidePreview,
+    cancelPreview,
+  } = useChannelPreview();
+
   // Favorites hook
   const {
     favorites,
@@ -179,6 +236,31 @@ export default function IPTVPlayer() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Initialize Chromecast
+  useEffect(() => {
+    initializeChromecast();
+    const unsubscribe = subscribeToCastState(setCastState);
+    return unsubscribe;
+  }, []);
+
+  // Voice search → search query
+  useEffect(() => {
+    if (transcript && transcript.trim()) {
+      setSearchQuery(transcript);
+      setSidebarOpen(true);
+    }
+  }, [transcript]);
+
+  // Track viewing sessions
+  useEffect(() => {
+    if (selectedChannel) {
+      startViewSession(selectedChannel.id);
+    }
+    return () => {
+      endViewSession();
+    };
+  }, [selectedChannel]);
 
   // Auto-hide overlay after 4 seconds
   const resetOverlayTimer = useCallback(() => {
@@ -261,11 +343,30 @@ export default function IPTVPlayer() {
     }
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(ch =>
-        ch.name.toLowerCase().includes(query) ||
-        ch.category.toLowerCase().includes(query)
-      );
+      const query = searchQuery.toLowerCase().trim();
+
+      // Check if search is a channel number (digits only)
+      if (/^\d+$/.test(query)) {
+        const channelNum = parseInt(query, 10);
+        // First try exact match on channel number
+        const exactMatch = filtered.filter(ch => ch.number === channelNum);
+        if (exactMatch.length > 0) {
+          filtered = exactMatch;
+        } else {
+          // Otherwise filter by number containing the digits or name
+          filtered = filtered.filter(ch =>
+            ch.number.toString().includes(query) ||
+            ch.name.toLowerCase().includes(query)
+          );
+        }
+      } else {
+        // Text search - match name, category, or channel ID
+        filtered = filtered.filter(ch =>
+          ch.name.toLowerCase().includes(query) ||
+          ch.category.toLowerCase().includes(query) ||
+          ch.id.toLowerCase().includes(query)
+        );
+      }
     }
 
     setDisplayedChannels(filtered);
@@ -335,6 +436,30 @@ export default function IPTVPlayer() {
       .sort((a, b) => a.number - b.number);
   }, [importedChannels, plutoChannels, brokenChannels]);
 
+  // Handle deep links (shared channel URLs)
+  const deepLinkHandledRef = useRef(false);
+  useEffect(() => {
+    // Only handle once per page load
+    if (deepLinkHandledRef.current) return;
+
+    const sharedChannelId = parseChannelFromUrl();
+    if (!sharedChannelId) return;
+
+    // Try to find the channel in all sources (don't filter by broken status for deep links)
+    const allSources = [...allChannels, ...importedChannels, ...plutoChannels];
+    const channel = allSources.find(ch => ch.id === sharedChannelId);
+
+    if (channel) {
+      deepLinkHandledRef.current = true;
+      // Small delay to ensure component is fully mounted
+      setTimeout(() => {
+        playChannel(channel);
+        setSidebarOpen(false);
+        clearChannelFromUrl();
+      }, 100);
+    }
+  }, [importedChannels, plutoChannels, playChannel]);
+
   const nextChannel = useCallback(() => {
     if (!selectedChannel || allAvailableChannels.length === 0) return;
     const currentIndex = allAvailableChannels.findIndex(ch => ch.id === selectedChannel.id);
@@ -358,6 +483,85 @@ export default function IPTVPlayer() {
       playChannel(allAvailableChannels[prevIndex]);
     }
   }, [selectedChannel, allAvailableChannels, playChannel]);
+
+  // Go to a specific channel by number
+  const goToChannel = useCallback((channelNumber: number) => {
+    // Search in all channels, not just available (so broken channels can still be accessed)
+    const allSources = [...allChannels, ...importedChannels, ...plutoChannels];
+    const channel = allSources.find(ch => ch.number === channelNumber);
+    if (channel) {
+      playChannel(channel);
+      return true;
+    }
+    return false;
+  }, [importedChannels, plutoChannels, playChannel]);
+
+  // Handle channel number input (like a TV remote)
+  const handleChannelNumberInput = useCallback((digit: string) => {
+    // Clear any existing timeout
+    if (channelInputTimeoutRef.current) {
+      clearTimeout(channelInputTimeoutRef.current);
+    }
+
+    const newInput = channelNumberInput + digit;
+    setChannelNumberInput(newInput);
+    setShowChannelInput(true);
+
+    // Auto-submit after 1.5 seconds of no input
+    channelInputTimeoutRef.current = setTimeout(() => {
+      const num = parseInt(newInput, 10);
+      if (!isNaN(num)) {
+        goToChannel(num);
+      }
+      setChannelNumberInput('');
+      setShowChannelInput(false);
+    }, 1500);
+  }, [channelNumberInput, goToChannel]);
+
+  // Handle keyboard number input for channel switching
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if not typing in an input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+      // Don't handle if modifier keys are pressed (for shortcuts like Cmd+1)
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      // Handle number keys 0-9
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handleChannelNumberInput(e.key);
+      }
+
+      // Handle Enter to submit immediately
+      if (e.key === 'Enter' && channelNumberInput) {
+        e.preventDefault();
+        if (channelInputTimeoutRef.current) {
+          clearTimeout(channelInputTimeoutRef.current);
+        }
+        const num = parseInt(channelNumberInput, 10);
+        if (!isNaN(num)) {
+          goToChannel(num);
+        }
+        setChannelNumberInput('');
+        setShowChannelInput(false);
+      }
+
+      // Handle Escape to cancel
+      if (e.key === 'Escape' && showChannelInput) {
+        e.preventDefault();
+        if (channelInputTimeoutRef.current) {
+          clearTimeout(channelInputTimeoutRef.current);
+        }
+        setChannelNumberInput('');
+        setShowChannelInput(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [channelNumberInput, handleChannelNumberInput, goToChannel, showChannelInput]);
 
   // Get program info for Ask AI feature
   const getAIProgramInfo = useCallback(() => {
@@ -671,6 +875,49 @@ export default function IPTVPlayer() {
   const quickPicks = useMemo(() => getQuickPicks(6), []);
   const lastWatched = useMemo(() => getLastWatched(), []);
 
+  // Get trending channels
+  const trendingChannels = useMemo(
+    () => getTrendingChannels(allAvailableChannels, 8),
+    [allAvailableChannels]
+  );
+
+  // Get related channels for current selection
+  const relatedChannels = useMemo(() => {
+    if (!selectedChannel) return [];
+    return getRelatedChannels(selectedChannel.id, allAvailableChannels, 6);
+  }, [selectedChannel, allAvailableChannels]);
+
+  // Get sub-filters for current category
+  const currentSubFilters = useMemo(
+    () => getSubFiltersForCategory(selectedCategory),
+    [selectedCategory]
+  );
+
+  // Share current channel handler
+  const handleShareChannel = useCallback(async () => {
+    if (!selectedChannel) return;
+    const result = await shareChannel(selectedChannel, currentProgram?.title);
+    setShareStatus({
+      show: true,
+      message: result.success
+        ? result.method === 'clipboard'
+          ? 'Link copied!'
+          : 'Shared!'
+        : 'Failed to share',
+    });
+    setTimeout(() => setShareStatus({ show: false, message: '' }), 2000);
+  }, [selectedChannel, currentProgram]);
+
+  // Cast current channel handler
+  const handleCast = useCallback(async () => {
+    if (!selectedChannel) return;
+    if (!castState.isConnected) {
+      await requestCastSession();
+    } else {
+      await castChannel(selectedChannel);
+    }
+  }, [selectedChannel, castState.isConnected]);
+
   // Get recommended channels for broken stream fallback
   const recommendedChannels = useMemo(() => {
     if (!selectedChannel) return [];
@@ -733,18 +980,31 @@ export default function IPTVPlayer() {
             </button>
           </div>
 
-          {/* Search */}
+          {/* Search with Voice */}
           <div className="relative mb-4">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
-              placeholder="Search channels..."
+              placeholder={isListening ? 'Listening...' : 'Search channels...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 glass-input rounded-xl text-sm text-white placeholder:text-white/30"
+              className="w-full pl-11 pr-12 py-3 glass-input rounded-xl text-sm text-white placeholder:text-white/30"
             />
+            {voiceSupported && (
+              <button
+                onClick={isListening ? stopListening : startListening}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${
+                  isListening
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'hover:bg-white/10 text-white/50 hover:text-white'
+                }`}
+                title={isListening ? 'Stop listening' : 'Voice search'}
+              >
+                {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+              </button>
+            )}
           </div>
 
           {/* Content Type Filter Dropdown */}
@@ -888,6 +1148,36 @@ export default function IPTVPlayer() {
                 <Settings size={14} />
               </button>
             </div>
+
+            {/* Sub-filters for selected category */}
+            {currentSubFilters.length > 0 && (
+              <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 custom-scrollbar">
+                <button
+                  onClick={() => setActiveSubFilter(null)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
+                    !activeSubFilter
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      : 'glass text-white/50 hover:text-white'
+                  }`}
+                >
+                  All {selectedCategory}
+                </button>
+                {currentSubFilters.map(filter => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setActiveSubFilter(activeSubFilter?.id === filter.id ? null : filter)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
+                      activeSubFilter?.id === filter.id
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        : 'glass text-white/50 hover:text-white'
+                    }`}
+                  >
+                    <span>{filter.icon}</span>
+                    <span>{filter.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -916,6 +1206,8 @@ export default function IPTVPlayer() {
                     animationDelay={isMobile ? 0 : index * 30}
                     onPlay={() => playChannel(channel)}
                     onToggleFavorite={() => toggleFavorite(channel)}
+                    onMouseEnter={!isMobile ? (e) => showPreview(channel, e.clientX, e.clientY) : undefined}
+                    onMouseLeave={!isMobile ? hidePreview : undefined}
                   />
                 ))}
                 {isMobile && displayedChannels.length > 50 && (
@@ -1033,6 +1325,36 @@ export default function IPTVPlayer() {
                 </div>
               )}
 
+              {/* Trending Channels */}
+              {trendingChannels.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp size={14} className="text-orange-400" />
+                    <span className="text-xs text-white/40 uppercase tracking-wider">Trending Now</span>
+                  </div>
+                  <div className="space-y-2">
+                    {trendingChannels.slice(0, 4).map((channel, idx) => (
+                      <button
+                        key={channel.id}
+                        onClick={() => playChannel(channel)}
+                        className="w-full glass-card rounded-xl p-3 text-left channel-card flex items-center gap-3"
+                      >
+                        <span className="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-xs font-bold">
+                          {idx + 1}
+                        </span>
+                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${categoryColors[channel.category]} flex items-center justify-center text-lg`}>
+                          {CATEGORY_ICONS[channel.category]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{channel.name}</div>
+                          <div className="text-xs text-white/40">{channel.category}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Mood Selector */}
               <div>
                 <div className="text-xs text-white/40 uppercase tracking-wider mb-3">How are you feeling?</div>
@@ -1077,6 +1399,31 @@ export default function IPTVPlayer() {
                       </svg>
                     </div>
                   </button>
+                </div>
+              )}
+
+              {/* Related Channels */}
+              {selectedChannel && relatedChannels.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users size={14} className="text-cyan-400" />
+                    <span className="text-xs text-white/40 uppercase tracking-wider">Viewers Also Watch</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {relatedChannels.slice(0, 4).map(channel => (
+                      <button
+                        key={channel.id}
+                        onClick={() => playChannel(channel)}
+                        className="glass-card rounded-xl p-3 text-left channel-card"
+                      >
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${categoryColors[channel.category]} flex items-center justify-center text-sm mb-2`}>
+                          {CATEGORY_ICONS[channel.category]}
+                        </div>
+                        <div className="text-sm font-medium truncate">{channel.name}</div>
+                        <div className="text-xs text-white/40">{channel.category}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1308,6 +1655,30 @@ export default function IPTVPlayer() {
                 </svg>
               </button>
 
+              {/* Share Button */}
+              <button
+                onClick={handleShareChannel}
+                disabled={!selectedChannel}
+                className="hidden sm:block p-2.5 md:p-3 glass rounded-lg md:rounded-xl hover:bg-white/10 active:bg-white/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
+                title="Share Channel"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+
+              {/* Cast Button - only show if available */}
+              {(castState.isAvailable || isAirPlayAvailable()) && (
+                <button
+                  onClick={handleCast}
+                  disabled={!selectedChannel}
+                  className={`hidden sm:block p-2.5 md:p-3 rounded-lg md:rounded-xl transition-all touch-manipulation ${
+                    castState.isConnected ? 'glass-button-active text-cyan-400' : 'glass hover:bg-white/10 active:bg-white/20'
+                  } disabled:opacity-30 disabled:cursor-not-allowed`}
+                  title={castState.isConnected ? `Casting to ${castState.deviceName}` : 'Cast to device'}
+                >
+                  <Cast className="w-5 h-5" />
+                </button>
+              )}
+
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className={`p-2.5 md:p-3 rounded-lg md:rounded-xl transition-all touch-manipulation ${sidebarOpen ? 'glass-button-active' : 'glass hover:bg-white/10 active:bg-white/20'}`}
@@ -1348,7 +1719,7 @@ export default function IPTVPlayer() {
 
         {/* AI Quick Panel - Responsive */}
         {showAIPanel && (
-          <div className="absolute bottom-20 md:bottom-24 left-3 right-3 md:left-auto md:right-6 md:w-80 glass-card rounded-2xl p-4 fade-in shadow-2xl shadow-violet-500/20 z-50">
+          <div className="absolute bottom-20 md:bottom-24 left-3 right-3 md:left-auto md:right-6 md:w-80 glass-dark rounded-2xl p-4 fade-in shadow-2xl shadow-violet-500/20 z-50 border border-white/10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="ai-badge">AI</span>
@@ -1365,11 +1736,17 @@ export default function IPTVPlayer() {
             </div>
             <div className="space-y-2">
               <button
-                onClick={handleAIRecommendation}
-                className="w-full glass p-3 rounded-xl text-left hover:bg-white/5 transition-all"
+                onClick={() => {
+                  handleAIRecommendation();
+                  setShowAIPanel(false);
+                }}
+                className="w-full bg-white/10 hover:bg-white/20 p-3 rounded-xl text-left transition-all border border-white/10 hover:border-white/20"
               >
-                <div className="font-medium text-sm">✨ Surprise Me</div>
-                <div className="text-xs text-white/40">AI picks something you&apos;ll love</div>
+                <div className="font-medium text-sm flex items-center gap-2">
+                  <Sparkles size={16} className="text-violet-400" />
+                  Surprise Me
+                </div>
+                <div className="text-xs text-white/50 mt-0.5">AI picks something you&apos;ll love</div>
               </button>
               {timeRecs.suggestedCategories.slice(0, 2).map(cat => (
                 <button
@@ -1377,12 +1754,16 @@ export default function IPTVPlayer() {
                   onClick={() => {
                     setSelectedCategory(cat as Category);
                     setViewMode('browse');
+                    setSidebarOpen(true);
                     setShowAIPanel(false);
                   }}
-                  className="w-full glass p-3 rounded-xl text-left hover:bg-white/5 transition-all"
+                  className="w-full bg-white/10 hover:bg-white/20 p-3 rounded-xl text-left transition-all border border-white/10 hover:border-white/20"
                 >
-                  <div className="font-medium text-sm">{CATEGORY_ICONS[cat]} {cat}</div>
-                  <div className="text-xs text-white/40">{timeRecs.mood}</div>
+                  <div className="font-medium text-sm flex items-center gap-2">
+                    {CATEGORY_ICONS[cat]}
+                    {cat}
+                  </div>
+                  <div className="text-xs text-white/50 mt-0.5">{timeRecs.mood}</div>
                 </button>
               ))}
             </div>
@@ -2025,6 +2406,33 @@ export default function IPTVPlayer() {
           />
         );
       })()}
+
+      {/* Channel Number Input Display */}
+      {showChannelInput && (
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none">
+          <div className="glass-dark rounded-2xl px-8 py-6 text-center shadow-2xl border border-white/10">
+            <div className="text-xs text-white/50 uppercase tracking-wider mb-2">Go to Channel</div>
+            <div className="text-5xl font-bold text-white tabular-nums">
+              {channelNumberInput || '—'}
+            </div>
+            <div className="text-xs text-white/40 mt-2">Press Enter or wait...</div>
+          </div>
+        </div>
+      )}
+
+      {/* Channel Preview */}
+      {previewChannel && (
+        <ChannelPreview
+          channel={previewChannel}
+          isVisible={isPreviewVisible}
+          position={previewPosition}
+          onClose={hidePreview}
+          onPlay={() => {
+            playChannel(previewChannel);
+            hidePreview();
+          }}
+        />
+      )}
     </div>
   );
 }

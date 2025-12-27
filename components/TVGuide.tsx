@@ -21,23 +21,6 @@ interface TVGuideProps {
 
 type TimeSlot = 'now' | '30min' | '1hr' | '2hr';
 
-// Category emoji mapping (simpler than React components for this use case)
-const CATEGORY_EMOJI: Record<string, string> = {
-  Favorites: '❤️',
-  All: '📺',
-  Imported: '📥',
-  Local: '🏠',
-  News: '📰',
-  Sports: '🏆',
-  Entertainment: '🎬',
-  Movies: '🎥',
-  Music: '🎵',
-  Kids: '👶',
-  Documentary: '🎓',
-  Horror: '💀',
-  Comedy: '😂',
-};
-
 export function TVGuide({
   channels,
   selectedChannel,
@@ -227,11 +210,8 @@ export function TVGuide({
               >
                 {/* Channel Info */}
                 <div className="flex-shrink-0 w-20 md:w-24 p-2.5 md:p-3 border-r border-white/5 flex flex-col items-center justify-center">
-                  <span className="text-lg md:text-xl mb-0.5">
-                    {CATEGORY_EMOJI[channel.category] || '📺'}
-                  </span>
-                  <span className="text-[10px] md:text-xs font-bold text-white/70">
-                    CH {channel.number}
+                  <span className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 flex items-center justify-center font-bold text-sm md:text-base text-white/80 mb-1">
+                    {channel.number}
                   </span>
                   <span className="text-[9px] md:text-[10px] text-white/40 truncate max-w-full text-center">
                     {channel.name.length > 10
